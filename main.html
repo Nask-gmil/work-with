@@ -381,12 +381,32 @@
 
           <section
             id="chat-panel"
-            class="side-tab-panel chat-placeholder"
+            class="side-tab-panel chat-panel"
             role="tabpanel"
             aria-labelledby="chat-tab"
             hidden
           >
-            <p>チャットUIは次の工程で実装します</p>
+            <div class="chat-target-field">
+              <label for="chat-target">送信先（アバターをクリックしても選べます）</label>
+              <select id="chat-target">
+                <option value="all">全体</option>
+              </select>
+            </div>
+
+            <div class="chat-history-section">
+              <h2 id="chat-history-title">全体チャット</h2>
+              <div id="chat-history" class="chat-history" aria-live="polite"></div>
+            </div>
+
+            <div class="chat-composer">
+              <label for="chat-message-input" class="visually-hidden">メッセージ</label>
+              <textarea
+                id="chat-message-input"
+                rows="2"
+                placeholder="全体へメッセージを送る"
+              ></textarea>
+              <button type="button" id="send-chat-button" aria-label="メッセージを送信">↑</button>
+            </div>
           </section>
         </div>
       </aside>
