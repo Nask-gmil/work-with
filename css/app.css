@@ -1,0 +1,4 @@
+/* SPAの画面切り替えに使う共通スタイルです。 */
+.app-view[hidden] {
+  display: none !important;
+}
