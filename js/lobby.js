@@ -66,12 +66,13 @@ function initializeLobby() {
  * API導入後は、入室可能か確認してから移動する処理に置き換えます。
  */
 function enterRoom(theme) {
-  window.location.href = `room.html?theme=${encodeURIComponent(theme)}`;
+  const query = new URLSearchParams({ theme: theme }).toString();
+  showView("room", true, query);
 }
 
 /** プライベート部屋作成画面へ移動します。 */
-function createPrivateRoom() {
-  window.location.href = "create-room.html";
+function openCreateRoomView() {
+  showView("create-room");
 }
 
 /**
@@ -90,7 +91,15 @@ function joinPrivateRoom() {
 
   roomIdError.textContent = "";
   roomIdInput.removeAttribute("aria-invalid");
-  window.location.href = `room.html?roomId=${encodeURIComponent(roomId)}`;
+  const privateRoom = findPrivateRoomById(roomId);
+
+  if (!privateRoom) {
+    roomIdError.textContent = "その部屋IDは存在しません";
+    roomIdInput.setAttribute("aria-invalid", "true");
+    return;
+  }
+
+  enterPrivateRoom(privateRoom.roomId);
 }
 
 // HTMLには処理を直接書かず、ここで各ボタンにイベントを設定します。
@@ -100,7 +109,7 @@ roomButtons.forEach(function (button) {
   });
 });
 
-createRoomButton.addEventListener("click", createPrivateRoom);
+createRoomButton.addEventListener("click", openCreateRoomView);
 
 joinRoomForm.addEventListener("submit", function (event) {
   event.preventDefault();

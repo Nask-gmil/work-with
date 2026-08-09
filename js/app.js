@@ -3,14 +3,16 @@
 const viewTitles = {
   login: "ログイン | ワークwith",
   register: "新規登録 | ワークwith",
-  lobby: "ロビー | ワークwith"
+  lobby: "ロビー | ワークwith",
+  "create-room": "プライベート部屋を作成 | ワークwith",
+  room: "部屋 | ワークwith"
 };
 
 /**
  * 指定した画面だけを表示します。
  * History APIを使うため、URLは変わってもページは再読み込みされません。
  */
-function showView(viewName, addHistory = true) {
+function showView(viewName, addHistory = true, queryString = "") {
   const nextView = document.querySelector(`[data-view="${viewName}"]`);
 
   if (!nextView) {
@@ -23,26 +25,33 @@ function showView(viewName, addHistory = true) {
 
   document.title = viewTitles[viewName] || "ワークwith";
 
-  const nextUrl = `#${viewName}`;
+  const nextUrl = `#${viewName}${queryString ? `?${queryString}` : ""}`;
   if (addHistory && window.location.hash !== nextUrl) {
     history.pushState({ view: viewName }, "", nextUrl);
   }
 
   window.scrollTo(0, 0);
   document.dispatchEvent(
-    new CustomEvent("viewchange", { detail: { view: viewName } })
+    new CustomEvent("viewchange", {
+      detail: { view: viewName, query: queryString }
+    })
   );
 }
 
 /** URLから表示対象を決めます。不明なURLの場合はログイン画面を表示します。 */
 function getViewFromUrl() {
-  const viewName = window.location.hash.replace("#", "");
+  const viewName = window.location.hash.replace("#", "").split("?")[0];
   return document.querySelector(`[data-view="${viewName}"]`) ? viewName : "login";
+}
+
+/** ハッシュURLの?以降をURLSearchParamsへ渡せる文字列として取得します。 */
+function getQueryFromUrl() {
+  return window.location.hash.split("?")[1] || "";
 }
 
 // ブラウザの「戻る」「進む」でも、リロードせず画面を切り替えます。
 window.addEventListener("popstate", function () {
-  showView(getViewFromUrl(), false);
+  showView(getViewFromUrl(), false, getQueryFromUrl());
 });
 
 // data-routeを持つリンクは、別HTMLを読み込まずSPA内の画面を表示します。
@@ -62,4 +71,4 @@ const initialView = getViewFromUrl();
 if (!window.location.hash) {
   history.replaceState({ view: initialView }, "", `#${initialView}`);
 }
-showView(initialView, false);
+showView(initialView, false, getQueryFromUrl());

@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/login.css">
   <link rel="stylesheet" href="css/register.css">
   <link rel="stylesheet" href="css/lobby.css">
+  <link rel="stylesheet" href="css/create-room.css">
 </head>
 <body>
   <!-- SPAでは各画面をviewとして用意し、JavaScriptで表示を切り替えます。 -->
@@ -220,9 +221,86 @@
     </div>
   </main>
 
+  <main id="create-room-view" class="app-view create-room-page" data-view="create-room" hidden>
+    <section class="create-room-card" aria-labelledby="create-room-title">
+      <header class="create-room-header">
+        <h1 id="create-room-title">プライベート部屋を作成</h1>
+        <p>部屋名とテーマを選んで作成してください</p>
+      </header>
+
+      <form id="create-room-form" class="create-room-form">
+        <div class="create-room-field">
+          <label for="private-room-name">部屋名（任意）</label>
+          <input
+            type="text"
+            id="private-room-name"
+            name="roomName"
+            placeholder="例: チーム開発部屋"
+            maxlength="50"
+          >
+          <p class="create-room-help">
+            未入力の場合「〇〇の部屋」のように自動で名付けられます
+          </p>
+        </div>
+
+        <fieldset class="theme-selector">
+          <legend>部屋のテーマ</legend>
+
+          <label class="theme-option">
+            <input type="radio" name="roomTheme" value="focus" checked>
+            <span class="theme-option-content">📗 集中部屋（初期値）</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="roomTheme" value="casual">
+            <span class="theme-option-content">💬 雑談OK部屋</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="roomTheme" value="night">
+            <span class="theme-option-content">🌙 深夜勢の部屋</span>
+          </label>
+        </fieldset>
+
+        <button type="submit" class="create-submit-button">作成する</button>
+      </form>
+
+      <section id="created-room-result" class="created-room-result" aria-live="polite" hidden>
+        <p class="result-label">作成後の表示イメージ</p>
+        <h2 id="created-room-name"></h2>
+        <p class="result-message">部屋が作成されました。このIDを共有してください</p>
+        <div class="room-id-result">
+          <strong id="created-room-id"></strong>
+          <button type="button" id="copy-room-id-button">コピー</button>
+        </div>
+        <p id="copy-status" class="copy-status" aria-live="polite"></p>
+        <button type="button" id="enter-created-room-button" class="enter-created-room-button">
+          この部屋に入る
+        </button>
+      </section>
+
+      <button type="button" class="back-to-lobby-link" data-route="lobby">
+        ロビーに戻る
+      </button>
+    </section>
+  </main>
+
+  <!-- 部屋本体を作るまで使用する、URLパラメータ確認用の簡易ビューです。 -->
+  <main id="room-view" class="app-view temporary-room-page" data-view="room" hidden>
+    <section class="temporary-room-card">
+      <p class="temporary-room-label">仮の部屋画面</p>
+      <h1 id="room-view-name">部屋</h1>
+      <dl class="room-summary">
+        <div><dt>部屋ID</dt><dd id="room-view-id">―</dd></div>
+        <div><dt>テーマ</dt><dd id="room-view-theme">―</dd></div>
+        <div><dt>作成者</dt><dd id="room-view-creator">―</dd></div>
+      </dl>
+      <button type="button" class="back-to-lobby-link" data-route="lobby">ロビーに戻る</button>
+    </section>
+  </main>
+
   <script src="js/app.js"></script>
   <script src="js/login.js"></script>
   <script src="js/register.js"></script>
+  <script src="js/create-room.js"></script>
   <script src="js/lobby.js"></script>
 </body>
 </html>
