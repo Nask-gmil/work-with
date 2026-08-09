@@ -29,6 +29,9 @@ function showView(viewName, addHistory = true) {
   }
 
   window.scrollTo(0, 0);
+  document.dispatchEvent(
+    new CustomEvent("viewchange", { detail: { view: viewName } })
+  );
 }
 
 /** URLから表示対象を決めます。不明なURLの場合はログイン画面を表示します。 */

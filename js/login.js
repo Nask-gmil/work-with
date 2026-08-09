@@ -7,6 +7,9 @@ const loginForm = document.getElementById("login-form");
  * Spring Boot導入後は、この関数内をAPI通信と認証処理に置き換えます。
  */
 function login() {
+  // バックエンド導入前の仮処理として、入力された名前をセッションに保存します。
+  const username = document.getElementById("username").value.trim();
+  sessionStorage.setItem("username", username);
   showView("lobby");
 }
 

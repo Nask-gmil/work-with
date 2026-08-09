@@ -178,6 +178,46 @@
         </form>
       </div>
     </section>
+
+    <!-- 初回ログイン時にロビーの上へ表示するアバター選択モーダルです。 -->
+    <div id="avatar-modal-overlay" class="avatar-modal-overlay" hidden>
+      <section
+        class="avatar-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="avatar-modal-title"
+        aria-describedby="avatar-modal-description"
+      >
+        <header class="avatar-modal-header">
+          <h2 id="avatar-modal-title">アバターを選んでください</h2>
+          <p id="avatar-modal-description">後からいつでも変更できます</p>
+        </header>
+
+        <div class="avatar-options" role="group" aria-label="アバターの種類">
+          <button type="button" class="avatar-option" data-avatar="maleA" aria-pressed="false">
+            <img src="work-space-pic/final_アバター_男性A.png" alt="男性Aのアバター">
+            <span>男性A</span>
+          </button>
+          <button type="button" class="avatar-option" data-avatar="maleB" aria-pressed="false">
+            <img src="work-space-pic/final_アバター_男性B.png" alt="男性Bのアバター">
+            <span>男性B</span>
+          </button>
+          <button type="button" class="avatar-option" data-avatar="femaleA" aria-pressed="false">
+            <img src="work-space-pic/final_アバター_女性A.png" alt="女性Aのアバター">
+            <span>女性A</span>
+          </button>
+          <button type="button" class="avatar-option" data-avatar="femaleB" aria-pressed="false">
+            <img src="work-space-pic/final_アバター_女性B.png" alt="女性Bのアバター">
+            <span>女性B</span>
+          </button>
+        </div>
+
+        <p id="avatar-error" class="avatar-error" aria-live="polite"></p>
+        <button type="button" id="confirm-avatar-button" class="confirm-avatar-button">
+          このアバターで決定
+        </button>
+      </section>
+    </div>
   </main>
 
   <script src="js/app.js"></script>
