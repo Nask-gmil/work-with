@@ -212,13 +212,160 @@
 }
 
 .room-side-card {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.side-tabs {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.side-tab {
+  position: relative;
+  min-height: 48px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  color: #999999;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.side-tab::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 2px;
+  background-color: transparent;
+}
+
+.side-tab:hover {
+  color: #dddddd;
+}
+
+.side-tab.is-active {
+  color: var(--text-color);
+}
+
+.side-tab.is-active::after {
+  background-color: var(--blue-accent);
+}
+
+.side-tab:focus-visible {
+  outline: 2px solid var(--blue-accent);
+  outline-offset: -4px;
+}
+
+.side-panel-content {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-color: #555555 #242424;
+  scrollbar-width: thin;
+}
+
+.side-tab-panel {
+  padding: 20px 18px 24px;
+}
+
+.side-tab-panel[hidden] {
+  display: none !important;
+}
+
+#side-username {
+  margin: 0 0 22px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.side-field-group {
+  margin-bottom: 21px;
+}
+
+.side-label {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--sub-text-color);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.side-status-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.side-status-buttons .status-button {
+  width: 100%;
+}
+
+.side-elapsed-time {
+  margin: 0;
+  color: var(--text-color);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#my-work-content,
+#private-memo {
+  width: 100%;
+  background-color: var(--field-background);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  color: var(--text-color);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+#my-work-content {
+  height: 42px;
+  padding: 0 11px;
+}
+
+#private-memo {
+  min-height: 132px;
+  padding: 10px 11px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+#my-work-content::placeholder,
+#private-memo::placeholder {
+  color: var(--placeholder-color);
+}
+
+#my-work-content:focus,
+#private-memo:focus {
+  border-color: var(--focus-color, #777777);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 7%);
+}
+
+.private-memo-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.chat-placeholder {
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 16px;
 }
 
-.room-side-card p {
+.chat-placeholder p {
   margin: 0;
   color: #888888;
   font-size: 13px;
@@ -242,7 +389,8 @@
   }
 
   .room-side-card {
-    min-height: 180px;
+    height: 480px;
+    min-height: 480px;
   }
 }
 

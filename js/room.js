@@ -10,6 +10,13 @@ const changeAvatarButton = document.getElementById("change-avatar-button");
 const changeThemeButton = document.getElementById("change-theme-button");
 const leaveRoomButton = document.getElementById("leave-room-button");
 const statusButtons = document.querySelectorAll(".status-button");
+const sideTabs = document.querySelectorAll(".side-tab");
+const selfPanel = document.getElementById("self-panel");
+const chatPanel = document.getElementById("chat-panel");
+const sideUsername = document.getElementById("side-username");
+const sideElapsedTime = document.getElementById("side-elapsed-time");
+const myWorkContentInput = document.getElementById("my-work-content");
+const privateMemoInput = document.getElementById("private-memo");
 
 const roomThemeNames = {
   focus: "静かに集中室",
@@ -32,6 +39,61 @@ const roomAvatarImages = {
 
 let currentRoomInfo = null;
 let myStatus = "working";
+let myWorkContent = "";
+let privateMemo = "";
+let roomEnteredAt = null;
+
+/** 現在のユーザー名を取得します。 */
+function getWorkspaceUsername() {
+  return sessionStorage.getItem("username") || "ゲスト";
+}
+
+/** ユーザーごとに保存された作業内容と個人メモを復元します。 */
+function loadMyWorkspaceState() {
+  const username = getWorkspaceUsername();
+  myWorkContent = localStorage.getItem(`workContent:${username}`) || "";
+  privateMemo = localStorage.getItem(`privateMemo:${username}`) || "";
+  sideUsername.textContent = username;
+  myWorkContentInput.value = myWorkContent;
+  privateMemoInput.value = privateMemo;
+}
+
+/** 他の利用者にも見える作業内容を仮保存します。 */
+function saveWorkContent(workContent) {
+  const username = getWorkspaceUsername();
+  myWorkContent = workContent;
+  localStorage.setItem(`workContent:${username}`, workContent);
+}
+
+/** 自分だけに表示する個人メモを仮保存します。 */
+function savePrivateMemo(memo) {
+  const username = getWorkspaceUsername();
+  privateMemo = memo;
+  localStorage.setItem(`privateMemo:${username}`, memo);
+}
+
+/** 入室時刻からの経過時間を「1時間20分」形式で更新します。 */
+function updateElapsedTime() {
+  if (!roomEnteredAt) return;
+
+  const elapsedMinutes = Math.floor((Date.now() - roomEnteredAt) / 60000);
+  const hours = Math.floor(elapsedMinutes / 60);
+  const minutes = elapsedMinutes % 60;
+  sideElapsedTime.textContent = hours > 0 ? `${hours}時間${minutes}分` : `${minutes}分`;
+}
+
+/** 自分・チャットの表示をHTMLを作り直さず切り替えます。 */
+function switchSideTab(tabName) {
+  const showSelf = tabName === "self";
+  selfPanel.hidden = !showSelf;
+  chatPanel.hidden = showSelf;
+
+  sideTabs.forEach(function (tab) {
+    const isActive = tab.dataset.sideTab === tabName;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+}
 
 /** URLSearchParamsと保存済みデータから表示する部屋情報を取得します。 */
 function getRoomInfo(queryString) {
@@ -65,10 +127,10 @@ function getRoomInfo(queryString) {
 
 /** UI確認用の入室者データを返します。後からAPI取得へ置き換えます。 */
 function getParticipants(roomInfo) {
-  const username = sessionStorage.getItem("username") || "ゲスト";
+  const username = getWorkspaceUsername();
   const myAvatar = localStorage.getItem(`avatarType:${username}`) || "maleA";
   const participants = [
-    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: "12分", memo: "作業中", x: 18, y: 47, isMe: true },
+    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, x: 18, y: 47, isMe: true },
     { id: 2, name: "佐藤", avatarType: "maleB", status: "working", elapsedTime: "35分", memo: "Java学習", x: 34, y: 47 },
     { id: 3, name: "鈴木", avatarType: "femaleA", status: "break", elapsedTime: "1時間05分", memo: "", x: 50, y: 47 },
     { id: 4, name: "高橋", avatarType: "femaleB", status: "working", elapsedTime: "48分", memo: "資料作成", x: 66, y: 47 },
@@ -173,6 +235,12 @@ function handleThemeChange() {
 /** URLに対応する部屋を初期表示します。 */
 function initializeRoom(queryString) {
   currentRoomInfo = getRoomInfo(queryString);
+  myStatus = "working";
+  roomEnteredAt = Date.now();
+  loadMyWorkspaceState();
+  switchSideTab("self");
+  updateElapsedTime();
+  setMyStatus(myStatus);
   renderWorkspace(currentRoomInfo);
 }
 
@@ -188,6 +256,22 @@ statusButtons.forEach(function (button) {
   });
 });
 
+sideTabs.forEach(function (tab) {
+  tab.addEventListener("click", function () {
+    switchSideTab(tab.dataset.sideTab);
+  });
+});
+
+myWorkContentInput.addEventListener("input", function () {
+  saveWorkContent(myWorkContentInput.value);
+  if (currentRoomInfo) renderParticipants(getParticipants(currentRoomInfo));
+});
+
+privateMemoInput.addEventListener("input", function () {
+  // 個人メモは保存するだけで、アバターやツールチップには渡しません。
+  savePrivateMemo(privateMemoInput.value);
+});
+
 document.addEventListener("avatarupdated", function () {
   if (currentRoomInfo) renderParticipants(getParticipants(currentRoomInfo));
 });
@@ -200,3 +284,11 @@ document.addEventListener("viewchange", function (event) {
 if (!document.getElementById("room-view").hidden) {
   initializeRoom(getQueryFromUrl());
 }
+
+// サーバー時刻は使わず、UI確認用として1分ごとに表示を更新します。
+window.setInterval(function () {
+  updateElapsedTime();
+  if (currentRoomInfo && !document.getElementById("room-view").hidden) {
+    renderParticipants(getParticipants(currentRoomInfo));
+  }
+}, 60000);

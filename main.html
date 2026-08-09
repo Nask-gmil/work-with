@@ -316,8 +316,79 @@
         </div>
       </section>
 
-      <aside class="room-side-card">
-        <p>右側UIは今後実装予定</p>
+      <aside class="room-side-card" aria-label="サイドパネル">
+        <div class="side-tabs" role="tablist" aria-label="サイドパネルの表示切り替え">
+          <button
+            type="button"
+            id="self-tab"
+            class="side-tab is-active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="self-panel"
+            data-side-tab="self"
+          >自分</button>
+          <button
+            type="button"
+            id="chat-tab"
+            class="side-tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="chat-panel"
+            data-side-tab="chat"
+          >チャット</button>
+        </div>
+
+        <div class="side-panel-content">
+          <section id="self-panel" class="side-tab-panel" role="tabpanel" aria-labelledby="self-tab">
+            <h2 id="side-username">ゲスト</h2>
+
+            <div class="side-field-group">
+              <p class="side-label">状態</p>
+              <div class="side-status-buttons">
+                <button type="button" class="status-button is-active" data-status="working">作業中</button>
+                <button type="button" class="status-button" data-status="break">休憩中</button>
+              </div>
+            </div>
+
+            <div class="side-field-group">
+              <p class="side-label">経過時間</p>
+              <p id="side-elapsed-time" class="side-elapsed-time">0分</p>
+            </div>
+
+            <div class="side-field-group">
+              <label class="side-label" for="my-work-content">
+                作業内容（任意・他の人にも見えます）
+              </label>
+              <input
+                type="text"
+                id="my-work-content"
+                placeholder="例:Java学習"
+                maxlength="80"
+              >
+            </div>
+
+            <div class="private-memo-section">
+              <label class="side-label" for="private-memo">
+                📝 メモ（任意・自分だけに表示）
+              </label>
+              <textarea
+                id="private-memo"
+                rows="7"
+                placeholder="自由にメモできます"
+              ></textarea>
+            </div>
+          </section>
+
+          <section
+            id="chat-panel"
+            class="side-tab-panel chat-placeholder"
+            role="tabpanel"
+            aria-labelledby="chat-tab"
+            hidden
+          >
+            <p>チャットUIは次の工程で実装します</p>
+          </section>
+        </div>
       </aside>
     </div>
   </main>
