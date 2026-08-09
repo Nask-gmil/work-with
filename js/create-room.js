@@ -89,22 +89,6 @@ function enterPrivateRoom(roomId) {
   showView("room", true, query);
 }
 
-/** URLSearchParamsで部屋IDまたはテーマを読み、簡易部屋画面へ反映します。 */
-function loadRoomFromParams(queryString) {
-  const params = new URLSearchParams(queryString);
-  const roomId = params.get("roomId");
-  const theme = params.get("theme");
-  const privateRoom = roomId ? findPrivateRoomById(roomId) : null;
-  const themeNames = { focus: "集中部屋", casual: "雑談OK部屋", night: "深夜勢の部屋" };
-
-  document.getElementById("room-view-name").textContent =
-    privateRoom?.roomName || themeNames[theme] || "部屋";
-  document.getElementById("room-view-id").textContent = privateRoom?.roomId || "―";
-  document.getElementById("room-view-theme").textContent =
-    themeNames[privateRoom?.theme || theme] || "―";
-  document.getElementById("room-view-creator").textContent = privateRoom?.createdBy || "―";
-}
-
 createRoomForm.addEventListener("submit", function (event) {
   event.preventDefault();
   showCreatedRoom(createPrivateRoom());
@@ -128,14 +112,3 @@ copyRoomIdButton.addEventListener("click", async function () {
 enterCreatedRoomButton.addEventListener("click", function () {
   if (latestCreatedRoom) enterPrivateRoom(latestCreatedRoom.roomId);
 });
-
-document.addEventListener("viewchange", function (event) {
-  if (event.detail.view === "room") {
-    loadRoomFromParams(event.detail.query);
-  }
-});
-
-// main.html#room?...を直接開いた場合にもURLの部屋情報を読み込みます。
-if (!document.getElementById("room-view").hidden) {
-  loadRoomFromParams(getQueryFromUrl());
-}

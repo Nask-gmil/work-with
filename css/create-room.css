@@ -1,5 +1,4 @@
-.create-room-page,
-.temporary-room-page {
+.create-room-page {
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
@@ -7,8 +6,7 @@
   padding: 32px 20px;
 }
 
-.create-room-card,
-.temporary-room-card {
+.create-room-card {
   width: min(100%, 540px);
   padding: 36px 40px 32px;
   background-color: var(--card-background);
@@ -211,50 +209,8 @@
   margin-top: 18px;
 }
 
-.temporary-room-card {
-  text-align: center;
-}
-
-.temporary-room-label {
-  margin: 0 0 8px;
-  color: var(--sub-text-color);
-  font-size: 13px;
-}
-
-.temporary-room-card h1 {
-  margin: 0 0 24px;
-  font-size: 25px;
-}
-
-.room-summary {
-  display: grid;
-  gap: 1px;
-  margin: 0 0 24px;
-  overflow: hidden;
-  background-color: var(--border-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  text-align: left;
-}
-
-.room-summary div {
-  display: grid;
-  grid-template-columns: 100px 1fr;
-  padding: 12px 14px;
-  background-color: #232323;
-}
-
-.room-summary dt {
-  color: var(--sub-text-color);
-}
-
-.room-summary dd {
-  margin: 0;
-}
-
 @media (max-width: 520px) {
-  .create-room-card,
-  .temporary-room-card {
+  .create-room-card {
     padding: 30px 22px 26px;
   }
 }

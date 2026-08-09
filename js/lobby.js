@@ -144,6 +144,7 @@ confirmAvatarButton.addEventListener("click", function () {
   }
 
   saveSelectedAvatar(selectedAvatar);
+  document.dispatchEvent(new CustomEvent("avatarupdated"));
   closeAvatarModal();
 });
 

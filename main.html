@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/register.css">
   <link rel="stylesheet" href="css/lobby.css">
   <link rel="stylesheet" href="css/create-room.css">
+  <link rel="stylesheet" href="css/room.css">
 </head>
 <body>
   <!-- SPAでは各画面をviewとして用意し、JavaScriptで表示を切り替えます。 -->
@@ -180,46 +181,47 @@
       </div>
     </section>
 
-    <!-- 初回ログイン時にロビーの上へ表示するアバター選択モーダルです。 -->
-    <div id="avatar-modal-overlay" class="avatar-modal-overlay" hidden>
-      <section
-        class="avatar-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="avatar-modal-title"
-        aria-describedby="avatar-modal-description"
-      >
-        <header class="avatar-modal-header">
-          <h2 id="avatar-modal-title">アバターを選んでください</h2>
-          <p id="avatar-modal-description">後からいつでも変更できます</p>
-        </header>
-
-        <div class="avatar-options" role="group" aria-label="アバターの種類">
-          <button type="button" class="avatar-option" data-avatar="maleA" aria-pressed="false">
-            <img src="work-space-pic/final_アバター_男性A.png" alt="男性Aのアバター">
-            <span>男性A</span>
-          </button>
-          <button type="button" class="avatar-option" data-avatar="maleB" aria-pressed="false">
-            <img src="work-space-pic/final_アバター_男性B.png" alt="男性Bのアバター">
-            <span>男性B</span>
-          </button>
-          <button type="button" class="avatar-option" data-avatar="femaleA" aria-pressed="false">
-            <img src="work-space-pic/final_アバター_女性A.png" alt="女性Aのアバター">
-            <span>女性A</span>
-          </button>
-          <button type="button" class="avatar-option" data-avatar="femaleB" aria-pressed="false">
-            <img src="work-space-pic/final_アバター_女性B.png" alt="女性Bのアバター">
-            <span>女性B</span>
-          </button>
-        </div>
-
-        <p id="avatar-error" class="avatar-error" aria-live="polite"></p>
-        <button type="button" id="confirm-avatar-button" class="confirm-avatar-button">
-          このアバターで決定
-        </button>
-      </section>
-    </div>
   </main>
+
+  <!-- ロビーと部屋の両方から再利用するアバター選択モーダルです。 -->
+  <div id="avatar-modal-overlay" class="avatar-modal-overlay" hidden>
+    <section
+      class="avatar-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="avatar-modal-title"
+      aria-describedby="avatar-modal-description"
+    >
+      <header class="avatar-modal-header">
+        <h2 id="avatar-modal-title">アバターを選んでください</h2>
+        <p id="avatar-modal-description">後からいつでも変更できます</p>
+      </header>
+
+      <div class="avatar-options" role="group" aria-label="アバターの種類">
+        <button type="button" class="avatar-option" data-avatar="maleA" aria-pressed="false">
+          <img src="work-space-pic/final_アバター_男性A.png" alt="男性Aのアバター">
+          <span>男性A</span>
+        </button>
+        <button type="button" class="avatar-option" data-avatar="maleB" aria-pressed="false">
+          <img src="work-space-pic/final_アバター_男性B.png" alt="男性Bのアバター">
+          <span>男性B</span>
+        </button>
+        <button type="button" class="avatar-option" data-avatar="femaleA" aria-pressed="false">
+          <img src="work-space-pic/final_アバター_女性A.png" alt="女性Aのアバター">
+          <span>女性A</span>
+        </button>
+        <button type="button" class="avatar-option" data-avatar="femaleB" aria-pressed="false">
+          <img src="work-space-pic/final_アバター_女性B.png" alt="女性Bのアバター">
+          <span>女性B</span>
+        </button>
+      </div>
+
+      <p id="avatar-error" class="avatar-error" aria-live="polite"></p>
+      <button type="button" id="confirm-avatar-button" class="confirm-avatar-button">
+        このアバターで決定
+      </button>
+    </section>
+  </div>
 
   <main id="create-room-view" class="app-view create-room-page" data-view="create-room" hidden>
     <section class="create-room-card" aria-labelledby="create-room-title">
@@ -283,18 +285,41 @@
     </section>
   </main>
 
-  <!-- 部屋本体を作るまで使用する、URLパラメータ確認用の簡易ビューです。 -->
-  <main id="room-view" class="app-view temporary-room-page" data-view="room" hidden>
-    <section class="temporary-room-card">
-      <p class="temporary-room-label">仮の部屋画面</p>
-      <h1 id="room-view-name">部屋</h1>
-      <dl class="room-summary">
-        <div><dt>部屋ID</dt><dd id="room-view-id">―</dd></div>
-        <div><dt>テーマ</dt><dd id="room-view-theme">―</dd></div>
-        <div><dt>作成者</dt><dd id="room-view-creator">―</dd></div>
-      </dl>
-      <button type="button" class="back-to-lobby-link" data-route="lobby">ロビーに戻る</button>
-    </section>
+  <main id="room-view" class="app-view room-page" data-view="room" hidden>
+    <header class="room-header">
+      <div class="room-heading">
+        <h1 id="workspace-room-name">部屋</h1>
+        <p id="workspace-participant-count">入室者 0人</p>
+      </div>
+      <div class="room-header-actions">
+        <button type="button" id="change-avatar-button">アバター変更</button>
+        <button type="button" id="change-theme-button" hidden>テーマ変更</button>
+        <button type="button" id="leave-room-button" class="leave-room-button">退室する</button>
+      </div>
+    </header>
+
+    <div class="room-layout">
+      <section class="workspace-card" aria-label="ワークスペース">
+        <div id="workspace-scene" class="workspace-scene">
+          <img id="room-background-layer" class="scene-layer background-layer" alt="">
+          <img id="chair-layer" class="scene-layer chair-layer" src="work-space-pic/椅子.png" alt="">
+          <div id="participant-layer" class="scene-layer participant-layer"></div>
+          <img id="desk-layer" class="scene-layer desk-layer" src="work-space-pic/机.png" alt="">
+
+          <div id="workspace-tooltip" class="workspace-tooltip" role="tooltip" hidden></div>
+
+          <div class="workspace-status-controls">
+            <span>自分:</span>
+            <button type="button" class="status-button is-active" data-status="working">作業中</button>
+            <button type="button" class="status-button" data-status="break">休憩中</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="room-side-card">
+        <p>右側UIは今後実装予定</p>
+      </aside>
+    </div>
   </main>
 
   <script src="js/app.js"></script>
@@ -302,5 +327,6 @@
   <script src="js/register.js"></script>
   <script src="js/create-room.js"></script>
   <script src="js/lobby.js"></script>
+  <script src="js/room.js"></script>
 </body>
 </html>
