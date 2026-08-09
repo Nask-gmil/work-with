@@ -23,6 +23,13 @@ const chatHistoryTitle = document.getElementById("chat-history-title");
 const chatHistory = document.getElementById("chat-history");
 const chatMessageInput = document.getElementById("chat-message-input");
 const sendChatButton = document.getElementById("send-chat-button");
+const roomSettingsOverlay = document.getElementById("room-settings-overlay");
+const closeRoomSettingsButton = document.getElementById("close-room-settings-button");
+const creatorThemeSettings = document.getElementById("creator-theme-settings");
+const readonlyThemeSettings = document.getElementById("readonly-theme-settings");
+const currentThemeCard = document.getElementById("current-theme-card");
+const settingsThemeInputs = document.querySelectorAll('input[name="settingsTheme"]');
+const saveRoomThemeButton = document.getElementById("save-room-theme-button");
 
 const roomThemeNames = {
   focus: "静かに集中室",
@@ -34,6 +41,12 @@ const roomBackgrounds = {
   focus: "work-space-pic/集中部屋.png",
   casual: "work-space-pic/雑談OK部屋.png",
   night: "work-space-pic/深夜部屋.PNG"
+};
+
+const roomSettingsThemeLabels = {
+  focus: "📗 集中部屋",
+  casual: "💬 雑談OK部屋",
+  night: "🌙 深夜勢の部屋"
 };
 
 const roomAvatarImages = {
@@ -50,6 +63,7 @@ let privateMemo = "";
 let roomEnteredAt = null;
 let currentParticipants = [];
 let selectedChatTarget = "all";
+let selectedRoomTheme = null;
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
@@ -150,6 +164,82 @@ function getRoomInfo(queryString) {
   }
 
   return { roomId: null, roomName: "部屋", theme: "focus", createdBy: null, isPrivate: false };
+}
+
+/** 現在開いている保存済みプライベート部屋を取得します。 */
+function getCurrentPrivateRoom() {
+  if (!currentRoomInfo?.isPrivate || !currentRoomInfo.roomId) return null;
+  return findPrivateRoomById(currentRoomInfo.roomId) || null;
+}
+
+/** 作成者判定を一か所で行います。 */
+function isCurrentUserRoomCreator(room = getCurrentPrivateRoom()) {
+  return Boolean(room && room.createdBy === getWorkspaceUsername());
+}
+
+/** 作成者または閲覧者に合わせてモーダル内容を描画します。 */
+function renderRoomSettings() {
+  const room = getCurrentPrivateRoom();
+  if (!room) return;
+
+  const isCreator = isCurrentUserRoomCreator(room);
+  selectedRoomTheme = room.theme;
+  creatorThemeSettings.hidden = !isCreator;
+  readonlyThemeSettings.hidden = isCreator;
+
+  if (isCreator) {
+    settingsThemeInputs.forEach(function (input) {
+      input.checked = input.value === room.theme;
+    });
+  } else {
+    currentThemeCard.textContent = roomSettingsThemeLabels[room.theme] || "テーマ未設定";
+  }
+}
+
+/** プライベート部屋の設定モーダルを表示します。 */
+function openRoomSettingsModal() {
+  if (!getCurrentPrivateRoom()) return;
+  renderRoomSettings();
+  roomSettingsOverlay.hidden = false;
+  document.body.classList.add("has-open-modal");
+  closeRoomSettingsButton.focus();
+}
+
+/** 未保存の選択を破棄してモーダルを閉じます。 */
+function closeRoomSettingsModal() {
+  roomSettingsOverlay.hidden = true;
+  document.body.classList.remove("has-open-modal");
+  selectedRoomTheme = null;
+  changeThemeButton.focus();
+}
+
+/** 保存前の一時的なテーマ選択を保持します。 */
+function selectRoomTheme(theme) {
+  if (roomSettingsThemeLabels[theme]) selectedRoomTheme = theme;
+}
+
+/** 保存されたテーマを再読み込みなしでワークスペースへ反映します。 */
+function applyRoomTheme(theme) {
+  if (!currentRoomInfo || !roomSettingsThemeLabels[theme]) return;
+  currentRoomInfo.theme = theme;
+  renderWorkspace(currentRoomInfo);
+}
+
+/** 作成者が保存を押したときだけlocalStorageのテーマを更新します。 */
+function saveRoomTheme() {
+  const room = getCurrentPrivateRoom();
+  if (!room || !isCurrentUserRoomCreator(room) || !selectedRoomTheme) return;
+
+  const privateRooms = getPrivateRooms();
+  const targetRoom = privateRooms.find(function (privateRoom) {
+    return privateRoom.roomId === room.roomId;
+  });
+  if (!targetRoom) return;
+
+  targetRoom.theme = selectedRoomTheme;
+  savePrivateRooms(privateRooms);
+  applyRoomTheme(selectedRoomTheme);
+  closeRoomSettingsModal();
 }
 
 /** UI確認用の入室者データを返します。後からAPI取得へ置き換えます。 */
@@ -372,11 +462,6 @@ function openAvatarModal() {
   showAvatarModal();
 }
 
-/** 将来テーマ変更UIを接続するための仮関数です。 */
-function handleThemeChange() {
-  // Spring Boot導入後にテーマ更新処理を追加します。
-}
-
 /** URLに対応する部屋を初期表示します。 */
 function initializeRoom(queryString) {
   currentRoomInfo = getRoomInfo(queryString);
@@ -391,7 +476,7 @@ function initializeRoom(queryString) {
 }
 
 changeAvatarButton.addEventListener("click", openAvatarModal);
-changeThemeButton.addEventListener("click", handleThemeChange);
+changeThemeButton.addEventListener("click", openRoomSettingsModal);
 leaveRoomButton.addEventListener("click", function () {
   showView("lobby");
 });
@@ -429,6 +514,19 @@ chatMessageInput.addEventListener("keydown", function (event) {
     event.preventDefault();
     sendChatMessage();
   }
+});
+
+settingsThemeInputs.forEach(function (input) {
+  input.addEventListener("change", function () {
+    selectRoomTheme(input.value);
+  });
+});
+
+saveRoomThemeButton.addEventListener("click", saveRoomTheme);
+closeRoomSettingsButton.addEventListener("click", closeRoomSettingsModal);
+
+roomSettingsOverlay.addEventListener("click", function (event) {
+  if (event.target === roomSettingsOverlay) closeRoomSettingsModal();
 });
 
 document.addEventListener("avatarupdated", function () {

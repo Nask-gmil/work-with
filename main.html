@@ -223,6 +223,48 @@
     </section>
   </div>
 
+  <!-- プライベート部屋でだけ使用する部屋設定モーダルです。 -->
+  <div id="room-settings-overlay" class="room-settings-overlay" hidden>
+    <section
+      class="room-settings-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="room-settings-title"
+    >
+      <button type="button" id="close-room-settings-button" class="room-settings-close" aria-label="閉じる">
+        ×
+      </button>
+      <h2 id="room-settings-title">部屋設定</h2>
+      <p class="room-settings-label">テーマ</p>
+
+      <div id="creator-theme-settings">
+        <fieldset class="room-theme-options">
+          <legend class="visually-hidden">部屋のテーマを選択</legend>
+          <label class="room-theme-option">
+            <input type="radio" name="settingsTheme" value="focus">
+            <span>📗 集中部屋</span>
+          </label>
+          <label class="room-theme-option">
+            <input type="radio" name="settingsTheme" value="casual">
+            <span>💬 雑談OK部屋</span>
+          </label>
+          <label class="room-theme-option">
+            <input type="radio" name="settingsTheme" value="night">
+            <span>🌙 深夜勢の部屋</span>
+          </label>
+        </fieldset>
+        <button type="button" id="save-room-theme-button" class="save-room-theme-button">
+          保存する
+        </button>
+      </div>
+
+      <div id="readonly-theme-settings" class="readonly-theme-settings" hidden>
+        <div id="current-theme-card" class="current-theme-card"></div>
+        <p>テーマの変更は部屋の作成者のみ行えます</p>
+      </div>
+    </section>
+  </div>
+
   <main id="create-room-view" class="app-view create-room-page" data-view="create-room" hidden>
     <section class="create-room-card" aria-labelledby="create-room-title">
       <header class="create-room-header">
