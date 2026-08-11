@@ -84,18 +84,10 @@ public class UserController {
     /** HttpSessionを確認し、現在ログイン中のユーザー情報を返します。 */
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return unauthorized();
-        }
-
-        Object loginUserId = session.getAttribute(UserSession.LOGIN_USER_ID);
-        if (!(loginUserId instanceof Number userId)) {
-            return unauthorized();
-        }
+        long userId = getLoginUserId(request);
 
         try {
-            return userService.findById(userId.longValue())
+            return userService.findById(userId)
                     .<ResponseEntity<?>>map(user -> ResponseEntity.ok(new LoginResponse(
                             user.getUserId(),
                             user.getUsername(),
@@ -110,10 +102,7 @@ public class UserController {
     /** 現在のセッションを破棄してログアウトします。 */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
+        request.getSession(false).invalidate();
         return ResponseEntity.noContent().build();
     }
 
@@ -122,19 +111,11 @@ public class UserController {
     public ResponseEntity<?> updateAvatar(
             @RequestBody AvatarUpdateRequest requestBody,
             HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return unauthorized();
-        }
-
-        Object loginUserId = session.getAttribute(UserSession.LOGIN_USER_ID);
-        if (!(loginUserId instanceof Number userId)) {
-            return unauthorized();
-        }
+        long userId = getLoginUserId(request);
 
         try {
             User updatedUser = userService.updateAvatar(
-                    userId.longValue(), requestBody.getAvatarType());
+                    userId, requestBody.getAvatarType());
             return ResponseEntity.ok(new LoginResponse(
                     updatedUser.getUserId(),
                     updatedUser.getUsername(),
@@ -153,5 +134,11 @@ public class UserController {
     private ResponseEntity<ApiErrorResponse> unauthorized() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ApiErrorResponse("ログインが必要です"));
+    }
+
+    /** Interceptorが確認済みのセッションから、本人のuserIdを取得します。 */
+    private long getLoginUserId(HttpServletRequest request) {
+        return ((Number) request.getSession(false)
+                .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
     }
 }
