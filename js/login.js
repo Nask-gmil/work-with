@@ -49,9 +49,6 @@ async function login() {
 
     // 認証状態はサーバーのHttpSessionが管理し、画面用情報だけをメモリへ保持します。
     setAuthenticatedUser(responseBody);
-    if (responseBody.avatarType) {
-      localStorage.setItem(`avatarType:${responseBody.username}`, responseBody.avatarType);
-    }
     loginPassword.value = "";
     showView("lobby");
   } catch (error) {

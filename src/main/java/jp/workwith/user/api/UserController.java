@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,7 @@ import jp.workwith.user.InvalidCredentialsException;
 import jp.workwith.user.User;
 import jp.workwith.user.UserService;
 import jp.workwith.user.UserSession;
+import jp.workwith.user.UserNotFoundException;
 
 /** 新規ユーザー登録のHTTPリクエストを受け付けます。 */
 @RestController
@@ -113,6 +115,39 @@ public class UserController {
             session.invalidate();
         }
         return ResponseEntity.noContent().build();
+    }
+
+    /** HttpSessionのユーザーIDを使って、本人のアバターだけを更新します。 */
+    @PatchMapping("/me/avatar")
+    public ResponseEntity<?> updateAvatar(
+            @RequestBody AvatarUpdateRequest requestBody,
+            HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return unauthorized();
+        }
+
+        Object loginUserId = session.getAttribute(UserSession.LOGIN_USER_ID);
+        if (!(loginUserId instanceof Number userId)) {
+            return unauthorized();
+        }
+
+        try {
+            User updatedUser = userService.updateAvatar(
+                    userId.longValue(), requestBody.getAvatarType());
+            return ResponseEntity.ok(new LoginResponse(
+                    updatedUser.getUserId(),
+                    updatedUser.getUsername(),
+                    updatedUser.getAvatarType()));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (UserNotFoundException exception) {
+            return unauthorized();
+        } catch (DataAccessException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("アバターの保存に失敗しました"));
+        }
     }
 
     private ResponseEntity<ApiErrorResponse> unauthorized() {

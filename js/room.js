@@ -249,7 +249,7 @@ function saveRoomTheme() {
 /** UI確認用の入室者データを返します。後からAPI取得へ置き換えます。 */
 function getParticipants(roomInfo) {
   const username = getWorkspaceUsername();
-  const myAvatar = normalizeAvatarType(localStorage.getItem(`avatarType:${username}`)) || "male_a";
+  const myAvatar = normalizeAvatarType(getAuthenticatedUser()?.avatarType) || "male_a";
   // 全テーマ共通の10席です。アバター位置はこのx・yだけで調整できます。
   const seatPositions = [
     { seatId: "upper-1", x: 26, y: 31.6 },

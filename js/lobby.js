@@ -36,25 +36,36 @@ function getCurrentUsername() {
 
 /** 現在のユーザーが保存済みのアバターを取得します。 */
 function getSelectedAvatar() {
-  const username = getCurrentUsername();
-  const storageKey = `avatarType:${username}`;
-  const savedAvatar = localStorage.getItem(storageKey);
-  const normalizedAvatar = normalizeAvatarType(savedAvatar);
-
-  // camelCase形式で保存済みの場合は、読み込み時に一度だけ移行します。
-  if (normalizedAvatar && normalizedAvatar !== savedAvatar) {
-    localStorage.setItem(storageKey, normalizedAvatar);
-  }
-  return normalizedAvatar;
+  return normalizeAvatarType(getAuthenticatedUser()?.avatarType);
 }
 
-/** 選択したアバターを現在のユーザー専用のキーで保存します。 */
-function saveSelectedAvatar(avatarType) {
-  const username = getCurrentUsername();
+/** 選択したアバターをSpring Boot API経由でSQLiteへ保存します。 */
+async function saveSelectedAvatar(avatarType) {
   const normalizedAvatar = normalizeAvatarType(avatarType);
-  if (normalizedAvatar) {
-    localStorage.setItem(`avatarType:${username}`, normalizedAvatar);
+  if (!normalizedAvatar) {
+    throw new Error("アバターを選択してください");
   }
+
+  const response = await fetch("/api/users/me/avatar", {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ avatarType: normalizedAvatar })
+  });
+  const responseBody = await response.json();
+
+  if (response.status === 401) {
+    clearAuthenticatedUser();
+    closeAvatarModal();
+    showView("login");
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(responseBody.message || "アバターを保存できませんでした");
+  }
+
+  setAuthenticatedUser(responseBody);
+  return responseBody;
 }
 
 /** アバター選択モーダルを表示します。将来の変更画面からも呼び出せます。 */
@@ -100,12 +111,10 @@ async function initializeLobby() {
     setAuthenticatedUser(user);
     currentUser.textContent = `${user.username}さん`;
 
-    if (user.avatarType) {
-      localStorage.setItem(`avatarType:${user.username}`, user.avatarType);
-    }
-
     if (!getSelectedAvatar()) {
       showAvatarModal();
+    } else {
+      closeAvatarModal();
     }
   } catch (error) {
     clearAuthenticatedUser();
@@ -203,15 +212,27 @@ avatarOptions.forEach(function (option) {
   });
 });
 
-confirmAvatarButton.addEventListener("click", function () {
+confirmAvatarButton.addEventListener("click", async function () {
   if (!selectedAvatar) {
     avatarError.textContent = "アバターを選択してください";
     return;
   }
 
-  saveSelectedAvatar(selectedAvatar);
-  document.dispatchEvent(new CustomEvent("avatarupdated"));
-  closeAvatarModal();
+  avatarError.textContent = "";
+  confirmAvatarButton.disabled = true;
+
+  try {
+    const updatedUser = await saveSelectedAvatar(selectedAvatar);
+    if (!updatedUser) {
+      return;
+    }
+    document.dispatchEvent(new CustomEvent("avatarupdated"));
+    closeAvatarModal();
+  } catch (error) {
+    avatarError.textContent = error.message;
+  } finally {
+    confirmAvatarButton.disabled = false;
+  }
 });
 
 logoutButton.addEventListener("click", logout);

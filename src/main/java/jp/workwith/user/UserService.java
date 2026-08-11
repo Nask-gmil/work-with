@@ -1,6 +1,7 @@
 package jp.workwith.user;
 
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -9,6 +10,9 @@ import org.springframework.stereotype.Service;
 /** ユーザー登録に必要な確認とパスワードのハッシュ化を担当します。 */
 @Service
 public class UserService {
+
+    private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of(
+            "male_a", "male_b", "female_a", "female_b");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -68,5 +72,27 @@ public class UserService {
     /** セッションに保存されたIDから現在のユーザーを取得します。 */
     public Optional<User> findById(long userId) {
         return userRepository.findById(userId);
+    }
+
+    /** ログイン中のユーザーのアバターを検証して更新します。 */
+    public User updateAvatar(long userId, String avatarType) {
+        String normalizedAvatarType = avatarType == null ? "" : avatarType.trim();
+
+        if (normalizedAvatarType.isEmpty()) {
+            throw new IllegalArgumentException("アバターを選択してください");
+        }
+        if (!ALLOWED_AVATAR_TYPES.contains(normalizedAvatarType)) {
+            throw new IllegalArgumentException("指定されたアバターは使用できません");
+        }
+        if (userRepository.findById(userId).isEmpty()) {
+            throw new UserNotFoundException();
+        }
+
+        if (!userRepository.updateAvatar(userId, normalizedAvatarType)) {
+            throw new UserNotFoundException();
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
     }
 }
