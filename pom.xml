@@ -42,6 +42,12 @@
             <version>${sqlite-jdbc.version}</version>
         </dependency>
 
+        <!-- 認証機能全体は導入せず、パスワードのBCryptハッシュ化だけに使用します。 -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -50,6 +56,22 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- 既存フロントエンドを移動せず、Spring Bootから配信できるようにします。 -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>static</targetPath>
+                <includes>
+                    <include>main.html</include>
+                    <include>css/**</include>
+                    <include>js/**</include>
+                    <include>work-space-pic/**</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
