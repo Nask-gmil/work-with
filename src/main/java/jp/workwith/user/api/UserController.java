@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.user.DuplicateUsernameException;
+import jp.workwith.user.InvalidCredentialsException;
 import jp.workwith.user.User;
 import jp.workwith.user.UserService;
 
@@ -40,6 +41,25 @@ public class UserController {
             // DB内部の詳細やパスワードを画面・ログへ返しません。
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiErrorResponse("ユーザー登録に失敗しました"));
+        }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        try {
+            User user = userService.login(request.getUsername(), request.getPassword());
+            return ResponseEntity.ok(new LoginResponse(
+                    user.getUserId(),
+                    user.getUsername(),
+                    user.getAvatarType()));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(new ApiErrorResponse(exception.getMessage()));
+        } catch (InvalidCredentialsException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("ログイン処理に失敗しました"));
         }
     }
 }

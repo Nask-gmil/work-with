@@ -40,4 +40,26 @@ public class UserService {
             throw new DuplicateUsernameException();
         }
     }
+
+    /** usernameと平文パスワードを照合し、成功したユーザーを返します。 */
+    public User login(String username, String password) {
+        String normalizedUsername = username == null ? "" : username.trim();
+
+        if (normalizedUsername.isEmpty()) {
+            throw new IllegalArgumentException("ユーザー名を入力してください");
+        }
+        if (password == null || password.isEmpty()) {
+            throw new IllegalArgumentException("パスワードを入力してください");
+        }
+
+        User user = userRepository.findByUsername(normalizedUsername)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        // BCryptは毎回異なるハッシュを作るため、文字列比較ではなくmatchesを使用します。
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new InvalidCredentialsException();
+        }
+
+        return user;
+    }
 }

@@ -1,20 +1,70 @@
 "use strict";
 
 const loginForm = document.getElementById("login-form");
+const loginUsername = document.getElementById("username");
+const loginPassword = document.getElementById("password");
+const loginButton = loginForm.querySelector("button[type='submit']");
 
-/**
- * 現在はロビー画面を表示するだけの仮ログイン処理です。
- * Spring Boot導入後は、この関数内をAPI通信と認証処理に置き換えます。
- */
-function login() {
-  // バックエンド導入前の仮処理として、入力された名前をセッションに保存します。
-  const username = document.getElementById("username").value.trim();
-  sessionStorage.setItem("username", username);
-  showView("lobby");
+// HTML/CSSを変更せず、既存のエラー用デザインをログイン画面でも利用します。
+const loginError = document.createElement("p");
+loginError.className = "register-error";
+loginError.setAttribute("aria-live", "polite");
+loginForm.insertBefore(loginError, loginButton);
+
+function showLoginError(message) {
+  loginError.textContent = message;
+  loginUsername.setAttribute("aria-invalid", "true");
+  loginPassword.setAttribute("aria-invalid", "true");
 }
 
-// HTML標準の入力チェックを通過したときだけ、仮ログイン処理を実行します。
+function clearLoginError() {
+  loginError.textContent = "";
+  loginUsername.removeAttribute("aria-invalid");
+  loginPassword.removeAttribute("aria-invalid");
+}
+
+/** 入力情報をログインAPIへ送り、成功した場合だけロビーを表示します。 */
+async function login() {
+  const username = loginUsername.value.trim();
+  const password = loginPassword.value;
+
+  clearLoginError();
+  loginButton.disabled = true;
+
+  try {
+    const response = await fetch("/api/users/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ username: username, password: password })
+    });
+    const responseBody = await response.json();
+
+    if (!response.ok) {
+      showLoginError(responseBody.message || "ログインに失敗しました");
+      return;
+    }
+
+    // 既存のロビー・ワークスペースが参照するusernameを保存します。
+    sessionStorage.setItem("username", responseBody.username);
+    if (responseBody.avatarType) {
+      localStorage.setItem(`avatarType:${responseBody.username}`, responseBody.avatarType);
+    }
+    loginPassword.value = "";
+    showView("lobby");
+  } catch (error) {
+    showLoginError("サーバーに接続できません。Spring Bootが起動しているか確認してください");
+  } finally {
+    loginButton.disabled = false;
+  }
+}
+
 loginForm.addEventListener("submit", function (event) {
   event.preventDefault();
   login();
+});
+
+[loginUsername, loginPassword].forEach(function (input) {
+  input.addEventListener("input", clearLoginError);
 });
