@@ -4,6 +4,7 @@ package jp.workwith.room;
 public class Room {
 
     private final Long roomId;
+    private final String roomCode;
     private final String roomType;
     private final String roomName;
     private final String theme;
@@ -13,6 +14,7 @@ public class Room {
 
     public Room(
             Long roomId,
+            String roomCode,
             String roomType,
             String roomName,
             String theme,
@@ -20,6 +22,7 @@ public class Room {
             int maxSeats,
             Long createdBy) {
         this.roomId = roomId;
+        this.roomCode = roomCode;
         this.roomType = roomType;
         this.roomName = roomName;
         this.theme = theme;
@@ -30,6 +33,10 @@ public class Room {
 
     public Long getRoomId() {
         return roomId;
+    }
+
+    public String getRoomCode() {
+        return roomCode;
     }
 
     public String getRoomType() {

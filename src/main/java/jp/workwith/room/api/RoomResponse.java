@@ -5,6 +5,7 @@ import jp.workwith.room.Room;
 /** パスワードなどのユーザー情報を含めず、部屋情報だけを返すDTOです。 */
 public record RoomResponse(
         Long roomId,
+        String roomCode,
         String roomType,
         String roomName,
         String theme,
@@ -15,6 +16,7 @@ public record RoomResponse(
     public static RoomResponse from(Room room) {
         return new RoomResponse(
                 room.getRoomId(),
+                room.getRoomCode(),
                 room.getRoomType(),
                 room.getRoomName(),
                 room.getTheme(),

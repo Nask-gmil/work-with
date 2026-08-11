@@ -16,13 +16,14 @@ import org.springframework.stereotype.Repository;
 public class RoomRepository {
 
     private static final String SELECT_COLUMNS =
-            "room_id, room_type, room_name, theme, background_url, max_seats, created_by";
+            "room_id, room_code, room_type, room_name, theme, background_url, max_seats, created_by";
 
     private static final RowMapper<Room> ROOM_ROW_MAPPER = (resultSet, rowNumber) -> {
         long createdBy = resultSet.getLong("created_by");
         Long nullableCreatedBy = resultSet.wasNull() ? null : createdBy;
         return new Room(
                 resultSet.getLong("room_id"),
+                resultSet.getString("room_code"),
                 resultSet.getString("room_type"),
                 resultSet.getString("room_name"),
                 resultSet.getString("theme"),
@@ -41,20 +42,21 @@ public class RoomRepository {
     public Room create(Room room) {
         String sql = """
                 INSERT INTO ROOMS
-                    (room_type, room_name, theme, background_url, max_seats, created_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (room_code, room_type, room_name, theme, background_url, max_seats, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement statement = connection.prepareStatement(
                     sql, Statement.RETURN_GENERATED_KEYS);
-            statement.setString(1, room.getRoomType());
-            statement.setString(2, room.getRoomName());
-            statement.setString(3, room.getTheme());
-            statement.setString(4, room.getBackgroundUrl());
-            statement.setInt(5, room.getMaxSeats());
-            statement.setObject(6, room.getCreatedBy());
+            statement.setString(1, room.getRoomCode());
+            statement.setString(2, room.getRoomType());
+            statement.setString(3, room.getRoomName());
+            statement.setString(4, room.getTheme());
+            statement.setString(5, room.getBackgroundUrl());
+            statement.setInt(6, room.getMaxSeats());
+            statement.setObject(7, room.getCreatedBy());
             return statement;
         }, keyHolder);
 
@@ -65,6 +67,7 @@ public class RoomRepository {
 
         return new Room(
                 generatedId.longValue(),
+                room.getRoomCode(),
                 room.getRoomType(),
                 room.getRoomName(),
                 room.getTheme(),
@@ -76,6 +79,11 @@ public class RoomRepository {
     public Optional<Room> findById(long roomId) {
         String sql = "SELECT " + SELECT_COLUMNS + " FROM ROOMS WHERE room_id = ?";
         return jdbcTemplate.query(sql, ROOM_ROW_MAPPER, roomId).stream().findFirst();
+    }
+
+    public Optional<Room> findByRoomCode(String roomCode) {
+        String sql = "SELECT " + SELECT_COLUMNS + " FROM ROOMS WHERE room_code = ?";
+        return jdbcTemplate.query(sql, ROOM_ROW_MAPPER, roomCode).stream().findFirst();
     }
 
     public List<Room> findPublicRooms() {

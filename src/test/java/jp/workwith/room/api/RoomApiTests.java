@@ -57,6 +57,9 @@ class RoomApiTests {
 
         mockMvc.perform(get("/api/rooms/public"))
                 .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/rooms/code/A7K9PX"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -73,17 +76,25 @@ class RoomApiTests {
                     .content(roomJson("Java勉強部屋", "focus", 10)))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.roomType").value("private"))
+                    .andExpect(jsonPath("$.roomCode").value(
+                            org.hamcrest.Matchers.matchesPattern("[A-HJ-NP-Z2-9]{6}")))
                     .andExpect(jsonPath("$.roomName").value("Java勉強部屋"))
                     .andExpect(jsonPath("$.theme").value("focus"))
                     .andExpect(jsonPath("$.maxSeats").value(10))
                     .andExpect(jsonPath("$.createdBy").value(user.getUserId()))
                     .andReturn();
             long namedRoomId = roomIdFrom(namedResult);
+            String namedRoomCode = roomCodeFrom(namedResult);
             createdRoomIds.add(namedRoomId);
 
             Room savedRoom = roomRepository.findById(namedRoomId).orElseThrow();
             assertThat(savedRoom.getRoomType()).isEqualTo("private");
             assertThat(savedRoom.getCreatedBy()).isEqualTo(user.getUserId());
+            assertThat(savedRoom.getRoomCode()).isEqualTo(namedRoomCode);
+            assertThat(roomRepository.findByRoomCode(namedRoomCode))
+                    .get()
+                    .extracting(Room::getRoomId)
+                    .isEqualTo(savedRoom.getRoomId());
 
             MvcResult automaticNameResult = mockMvc.perform(post("/api/rooms")
                     .session(session)
@@ -95,7 +106,24 @@ class RoomApiTests {
                             .value("work-space-pic/room-midnight-task.PNG"))
                     .andReturn();
             long automaticNameRoomId = roomIdFrom(automaticNameResult);
+            String automaticNameRoomCode = roomCodeFrom(automaticNameResult);
             createdRoomIds.add(automaticNameRoomId);
+            assertThat(automaticNameRoomCode).isNotEqualTo(namedRoomCode);
+
+            mockMvc.perform(get("/api/rooms/code/{roomCode}", namedRoomCode)
+                    .session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.roomId").value(namedRoomId))
+                    .andExpect(jsonPath("$.roomCode").value(namedRoomCode));
+
+            // 入力時は小文字でも、サーバー側で大文字へ正規化します。
+            mockMvc.perform(get("/api/rooms/code/{roomCode}", namedRoomCode.toLowerCase())
+                    .session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.roomId").value(namedRoomId));
+
+            mockMvc.perform(get("/api/rooms/code/ZZZZZZ").session(session))
+                    .andExpect(status().isNotFound());
 
             mockMvc.perform(get("/api/rooms/{roomId}", namedRoomId).session(session))
                     .andExpect(status().isOk())
@@ -140,6 +168,11 @@ class RoomApiTests {
     private long roomIdFrom(MvcResult result) throws Exception {
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         return response.get("roomId").longValue();
+    }
+
+    private String roomCodeFrom(MvcResult result) throws Exception {
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        return response.get("roomCode").textValue();
     }
 
     private String roomJson(String roomName, String theme, int maxSeats) {

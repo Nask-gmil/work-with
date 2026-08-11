@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS USERS (
 -- パブリック部屋とプライベート部屋の基本情報を保存します。
 CREATE TABLE IF NOT EXISTS ROOMS (
     room_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_code TEXT UNIQUE,
     room_type TEXT NOT NULL,
     room_name TEXT NOT NULL,
     theme TEXT,

@@ -75,6 +75,20 @@ public class RoomController {
         }
     }
 
+    /** ユーザー向け参加コードからprivate部屋を取得します。 */
+    @GetMapping("/code/{roomCode}")
+    public ResponseEntity<?> findByRoomCode(@PathVariable String roomCode) {
+        try {
+            return ResponseEntity.ok(RoomResponse.from(
+                    roomService.findPrivateRoomByCode(roomCode)));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
     @GetMapping("/{roomId}")
     public ResponseEntity<?> findById(@PathVariable long roomId) {
         try {

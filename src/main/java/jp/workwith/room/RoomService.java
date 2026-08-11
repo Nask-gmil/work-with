@@ -1,10 +1,12 @@
 package jp.workwith.room;
 
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 
 import jp.workwith.user.User;
 import jp.workwith.user.UserNotFoundException;
@@ -15,6 +17,10 @@ import jp.workwith.user.UserService;
 public class RoomService {
 
     private static final int MAX_SEATS = 10;
+    private static final int ROOM_CODE_LENGTH = 6;
+    private static final int ROOM_CODE_MAX_ATTEMPTS = 20;
+    private static final String ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Set<String> ALLOWED_THEMES = Set.of("focus", "casual", "night");
     private static final Map<String, String> BACKGROUND_URLS = Map.of(
             "focus", "work-space-pic/room-forcus-task.png",
@@ -40,15 +46,30 @@ public class RoomService {
         String normalizedTheme = normalizeTheme(theme);
         int normalizedMaxSeats = validateMaxSeats(maxSeats);
 
-        Room room = new Room(
-                null,
-                "private",
-                normalizedName,
-                normalizedTheme,
-                BACKGROUND_URLS.get(normalizedTheme),
-                normalizedMaxSeats,
-                userId);
-        return roomRepository.create(room);
+        // 事前確認とDBのUNIQUE制約の両方で、重複コードの保存を防止します。
+        for (int attempt = 0; attempt < ROOM_CODE_MAX_ATTEMPTS; attempt++) {
+            String roomCode = generateRoomCode();
+            if (roomRepository.findByRoomCode(roomCode).isPresent()) {
+                continue;
+            }
+
+            Room room = new Room(
+                    null,
+                    roomCode,
+                    "private",
+                    normalizedName,
+                    normalizedTheme,
+                    BACKGROUND_URLS.get(normalizedTheme),
+                    normalizedMaxSeats,
+                    userId);
+            try {
+                return roomRepository.create(room);
+            } catch (DuplicateKeyException exception) {
+                // 同時作成で重複した場合も、新しいコードで安全に再試行します。
+            }
+        }
+
+        throw new IllegalStateException("参加コードを生成できませんでした");
     }
 
     public Room findById(long roomId) {
@@ -62,6 +83,22 @@ public class RoomService {
 
     public List<Room> findCreatedRooms(long userId) {
         return roomRepository.findByCreatedBy(userId);
+    }
+
+    public Room findPrivateRoomByCode(String roomCode) {
+        String normalizedCode = roomCode == null ? "" : roomCode.trim().toUpperCase();
+        return roomRepository.findByRoomCode(normalizedCode)
+                .filter(room -> "private".equals(room.getRoomType()))
+                .orElseThrow(RoomNotFoundException::new);
+    }
+
+    private String generateRoomCode() {
+        StringBuilder code = new StringBuilder(ROOM_CODE_LENGTH);
+        for (int index = 0; index < ROOM_CODE_LENGTH; index++) {
+            int characterIndex = SECURE_RANDOM.nextInt(ROOM_CODE_CHARACTERS.length());
+            code.append(ROOM_CODE_CHARACTERS.charAt(characterIndex));
+        }
+        return code.toString();
     }
 
     private String normalizeRoomName(String roomName, String username) {

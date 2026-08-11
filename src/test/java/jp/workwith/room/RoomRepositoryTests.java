@@ -29,10 +29,10 @@ class RoomRepositoryTests {
 
         try {
             privateRoom = roomRepository.create(new Room(
-                    null, "private", "Repository private", "focus",
+                    null, "R7K9PX", "private", "Repository private", "focus",
                     "work-space-pic/room-forcus-task.png", 10, user.getUserId()));
             publicRoom = roomRepository.create(new Room(
-                    null, "public", "Repository public", "casual",
+                    null, null, "public", "Repository public", "casual",
                     "work-space-pic/room-speak-ok.png", 10, user.getUserId()));
 
             assertThat(privateRoom.getRoomId()).isPositive();
@@ -40,6 +40,12 @@ class RoomRepositoryTests {
                     .get()
                     .extracting(Room::getRoomName)
                     .isEqualTo("Repository private");
+            assertThat(roomRepository.findByRoomCode("R7K9PX"))
+                    .get()
+                    .extracting(Room::getRoomId)
+                    .isEqualTo(privateRoom.getRoomId());
+            assertThat(roomRepository.findByRoomCode("MISSING")).isEmpty();
+            assertThat(publicRoom.getRoomCode()).isNull();
             assertThat(roomRepository.findPublicRooms())
                     .extracting(Room::getRoomId)
                     .contains(publicRoom.getRoomId())
