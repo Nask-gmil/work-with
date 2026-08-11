@@ -41,8 +41,8 @@ class AuthInterceptorTests {
         mockMvc.perform(post("/api/users/logout"))
                 .andExpect(status().isUnauthorized());
 
-        // 将来追加するAPIも、Controllerの実装前から共通チェックの対象です。
-        mockMvc.perform(get("/api/rooms"))
+        // 新しく追加したROOMS APIも共通チェックの対象です。
+        mockMvc.perform(get("/api/rooms/mine"))
                 .andExpect(status().isUnauthorized());
     }
 
