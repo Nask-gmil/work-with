@@ -83,7 +83,7 @@ const chatHistories = {
 
 /** 現在のユーザー名を取得します。 */
 function getWorkspaceUsername() {
-  return sessionStorage.getItem("username") || "ゲスト";
+  return getAuthenticatedUser()?.username || "ゲスト";
 }
 
 /** ユーザーごとに保存された作業内容と個人メモを復元します。 */

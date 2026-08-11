@@ -10,6 +10,7 @@ const avatarModalOverlay = document.getElementById("avatar-modal-overlay");
 const avatarOptions = document.querySelectorAll(".avatar-option");
 const confirmAvatarButton = document.getElementById("confirm-avatar-button");
 const avatarError = document.getElementById("avatar-error");
+const logoutButton = document.getElementById("logout-button");
 
 let selectedAvatar = null;
 
@@ -30,7 +31,7 @@ function normalizeAvatarType(avatarType) {
 
 /** セッションから現在のユーザー名を取得します。 */
 function getCurrentUsername() {
-  return sessionStorage.getItem("username") || "yamada_taro";
+  return getAuthenticatedUser()?.username || "ゲスト";
 }
 
 /** 現在のユーザーが保存済みのアバターを取得します。 */
@@ -79,11 +80,50 @@ function closeAvatarModal() {
 }
 
 /** ロビー表示時にユーザー名と初回アバター選択の要否を反映します。 */
-function initializeLobby() {
-  currentUser.textContent = `${getCurrentUsername()}さん`;
+async function initializeLobby() {
+  try {
+    const response = await fetch("/api/users/me", {
+      credentials: "same-origin"
+    });
 
-  if (!getSelectedAvatar()) {
-    showAvatarModal();
+    if (response.status === 401) {
+      clearAuthenticatedUser();
+      closeAvatarModal();
+      showView("login");
+      return;
+    }
+    if (!response.ok) {
+      throw new Error("ユーザー情報を取得できませんでした");
+    }
+
+    const user = await response.json();
+    setAuthenticatedUser(user);
+    currentUser.textContent = `${user.username}さん`;
+
+    if (user.avatarType) {
+      localStorage.setItem(`avatarType:${user.username}`, user.avatarType);
+    }
+
+    if (!getSelectedAvatar()) {
+      showAvatarModal();
+    }
+  } catch (error) {
+    clearAuthenticatedUser();
+    closeAvatarModal();
+    showView("login");
+  }
+}
+
+async function logout() {
+  try {
+    await fetch("/api/users/logout", {
+      method: "POST",
+      credentials: "same-origin"
+    });
+  } finally {
+    clearAuthenticatedUser();
+    closeAvatarModal();
+    showView("login");
   }
 }
 
@@ -173,6 +213,8 @@ confirmAvatarButton.addEventListener("click", function () {
   document.dispatchEvent(new CustomEvent("avatarupdated"));
   closeAvatarModal();
 });
+
+logoutButton.addEventListener("click", logout);
 
 // SPAでロビーへ切り替わるたびに初回判定を行います。
 document.addEventListener("viewchange", function (event) {

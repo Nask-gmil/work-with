@@ -1,5 +1,7 @@
 package jp.workwith.user;
 
+import java.util.Optional;
+
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -61,5 +63,10 @@ public class UserService {
         }
 
         return user;
+    }
+
+    /** セッションに保存されたIDから現在のユーザーを取得します。 */
+    public Optional<User> findById(long userId) {
+        return userRepository.findById(userId);
     }
 }

@@ -99,7 +99,6 @@ async function registerUser() {
     }
 
     // 登録成功後は既存どおりログイン画面へ戻り、入力したusernameを引き継ぎます。
-    sessionStorage.setItem("username", responseBody.username);
     document.getElementById("username").value = responseBody.username;
     registerForm.reset();
     showView("login");

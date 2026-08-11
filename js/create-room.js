@@ -49,7 +49,7 @@ function findPrivateRoomById(roomId) {
 
 /** 入力内容から部屋を作成し、既存データへ追加します。 */
 function createPrivateRoom() {
-  const username = sessionStorage.getItem("username") || "ゲスト";
+  const username = getAuthenticatedUser()?.username || "ゲスト";
   const enteredName = privateRoomNameInput.value.trim();
   const theme = createRoomForm.elements.roomTheme.value;
   const privateRooms = getPrivateRooms();

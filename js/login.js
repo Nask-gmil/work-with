@@ -34,6 +34,7 @@ async function login() {
   try {
     const response = await fetch("/api/users/login", {
       method: "POST",
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json"
       },
@@ -46,8 +47,8 @@ async function login() {
       return;
     }
 
-    // 既存のロビー・ワークスペースが参照するusernameを保存します。
-    sessionStorage.setItem("username", responseBody.username);
+    // 認証状態はサーバーのHttpSessionが管理し、画面用情報だけをメモリへ保持します。
+    setAuthenticatedUser(responseBody);
     if (responseBody.avatarType) {
       localStorage.setItem(`avatarType:${responseBody.username}`, responseBody.avatarType);
     }

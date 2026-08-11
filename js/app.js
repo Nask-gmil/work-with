@@ -1,5 +1,20 @@
 "use strict";
 
+// 認証の根拠はHttpSessionです。この変数は画面表示中だけ使う一時情報です。
+let authenticatedUser = null;
+
+function setAuthenticatedUser(user) {
+  authenticatedUser = user;
+}
+
+function getAuthenticatedUser() {
+  return authenticatedUser;
+}
+
+function clearAuthenticatedUser() {
+  authenticatedUser = null;
+}
+
 const viewTitles = {
   login: "ログイン | ワークwith",
   register: "新規登録 | ワークwith",
