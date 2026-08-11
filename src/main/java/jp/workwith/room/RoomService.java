@@ -7,7 +7,9 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.annotation.Transactional;
 
+import jp.workwith.seat.SeatService;
 import jp.workwith.user.User;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.user.UserService;
@@ -29,12 +31,18 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
     private final UserService userService;
+    private final SeatService seatService;
 
-    public RoomService(RoomRepository roomRepository, UserService userService) {
+    public RoomService(
+            RoomRepository roomRepository,
+            UserService userService,
+            SeatService seatService) {
         this.roomRepository = roomRepository;
         this.userService = userService;
+        this.seatService = seatService;
     }
 
+    @Transactional
     public Room createPrivateRoom(
             long userId,
             String roomName,
@@ -62,11 +70,17 @@ public class RoomService {
                     BACKGROUND_URLS.get(normalizedTheme),
                     normalizedMaxSeats,
                     userId);
+            Room createdRoom;
             try {
-                return roomRepository.create(room);
+                createdRoom = roomRepository.create(room);
             } catch (DuplicateKeyException exception) {
-                // 同時作成で重複した場合も、新しいコードで安全に再試行します。
+                // 同時作成で参加コードが重複した場合は、新しいコードで再試行します。
+                continue;
             }
+
+            // 座席生成の例外は捕捉せず、部屋のINSERTと一緒にロールバックさせます。
+            seatService.createForRoom(createdRoom.getRoomId(), createdRoom.getMaxSeats());
+            return createdRoom;
         }
 
         throw new IllegalStateException("参加コードを生成できませんでした");

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
+import jp.workwith.seat.SeatRepository;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserService;
@@ -47,6 +48,9 @@ class RoomApiTests {
 
     @Autowired
     private RoomRepository roomRepository;
+
+    @Autowired
+    private SeatRepository seatRepository;
 
     @Test
     void requiresLoginForRoomApis() throws Exception {
@@ -154,7 +158,10 @@ class RoomApiTests {
                     .content(roomJson("invalid", "default", 10)))
                     .andExpect(status().isBadRequest());
         } finally {
-            createdRoomIds.forEach(roomRepository::deleteById);
+            createdRoomIds.forEach(roomId -> {
+                seatRepository.deleteByRoomId(roomId);
+                roomRepository.deleteById(roomId);
+            });
             userRepository.deleteById(user.getUserId());
         }
     }
