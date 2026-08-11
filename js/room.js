@@ -2,9 +2,13 @@
 
 const workspaceRoomName = document.getElementById("workspace-room-name");
 const workspaceParticipantCount = document.getElementById("workspace-participant-count");
+const workspaceScene = document.getElementById("workspace-scene");
 const roomBackgroundLayer = document.getElementById("room-background-layer");
-const chairLayer = document.getElementById("chair-layer");
-const participantLayer = document.getElementById("participant-layer");
+const upperChairLayer = document.getElementById("upper-chair-layer");
+const lowerChairLayer = document.getElementById("lower-chair-layer");
+const upperParticipantLayer = document.getElementById("upper-participant-layer");
+const lowerParticipantLayer = document.getElementById("lower-participant-layer");
+const statusBadgeLayer = document.getElementById("status-badge-layer");
 const workspaceTooltip = document.getElementById("workspace-tooltip");
 const changeAvatarButton = document.getElementById("change-avatar-button");
 const changeThemeButton = document.getElementById("change-theme-button");
@@ -38,9 +42,9 @@ const roomThemeNames = {
 };
 
 const roomBackgrounds = {
-  focus: "work-space-pic/集中部屋.png",
-  casual: "work-space-pic/雑談OK部屋.png",
-  night: "work-space-pic/深夜部屋.PNG"
+  focus: "work-space-pic/room-forcus-task.png",
+  casual: "work-space-pic/room-speak-ok.png",
+  night: "work-space-pic/room-midnight-task.PNG"
 };
 
 const roomSettingsThemeLabels = {
@@ -50,10 +54,10 @@ const roomSettingsThemeLabels = {
 };
 
 const roomAvatarImages = {
-  maleA: "work-space-pic/final_アバター_男性A.png",
-  maleB: "work-space-pic/final_アバター_男性B.png",
-  femaleA: "work-space-pic/final_アバター_女性A.png",
-  femaleB: "work-space-pic/final_アバター_女性B.png"
+  male_a: "work-space-pic/avatar-man-A.png",
+  male_b: "work-space-pic/avatar-man-B.png",
+  female_a: "work-space-pic/avatar-woman-A.png",
+  female_b: "work-space-pic/avatar-woman-B.png"
 };
 
 let currentRoomInfo = null;
@@ -245,21 +249,37 @@ function saveRoomTheme() {
 /** UI確認用の入室者データを返します。後からAPI取得へ置き換えます。 */
 function getParticipants(roomInfo) {
   const username = getWorkspaceUsername();
-  const myAvatar = localStorage.getItem(`avatarType:${username}`) || "maleA";
+  const myAvatar = normalizeAvatarType(localStorage.getItem(`avatarType:${username}`)) || "male_a";
   const participants = [
-    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, x: 18, y: 47, joinOrder: 0, isMe: true },
-    { id: "user-2", name: "佐藤", avatarType: "maleB", status: "working", elapsedTime: "35分", memo: "Java学習", x: 34, y: 47, joinOrder: 1 },
-    { id: "user-3", name: "鈴木", avatarType: "femaleA", status: "break", elapsedTime: "1時間05分", memo: "", x: 50, y: 47, joinOrder: 2 },
-    { id: "user-4", name: "高橋", avatarType: "femaleB", status: "working", elapsedTime: "48分", memo: "資料作成", x: 66, y: 47, joinOrder: 3 },
-    { id: "user-5", name: "田中", avatarType: "maleA", status: "working", elapsedTime: "1時間20分", memo: "ポートフォリオ制作", x: 82, y: 47, joinOrder: 4 },
-    { id: "user-6", name: "伊藤", avatarType: "femaleB", status: "working", elapsedTime: "22分", memo: "デザイン確認", x: 16, y: 72, joinOrder: 5 },
-    { id: "user-7", name: "渡辺", avatarType: "maleB", status: "break", elapsedTime: "50分", memo: "休憩中", x: 34, y: 72, joinOrder: 6 },
-    { id: "user-8", name: "山本", avatarType: "femaleA", status: "working", elapsedTime: "18分", memo: "資格勉強", x: 51, y: 72, joinOrder: 7 },
-    { id: "user-9", name: "中村", avatarType: "maleA", status: "working", elapsedTime: "42分", memo: "コーディング", x: 68, y: 72, joinOrder: 8 },
-    { id: "user-10", name: "小林", avatarType: "femaleB", status: "working", elapsedTime: "27分", memo: "読書", x: 84, y: 72, joinOrder: 9 }
+    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, x: 27, y: 34, joinOrder: 0, isMe: true },
+    { id: "user-2", name: "佐藤", avatarType: "male_b", status: "working", elapsedTime: "35分", memo: "Java学習", x: 34, y: 47, joinOrder: 1 },
+    { id: "user-3", name: "鈴木", avatarType: "female_a", status: "break", elapsedTime: "1時間05分", memo: "", x: 50, y: 47, joinOrder: 2 },
+    { id: "user-4", name: "高橋", avatarType: "female_b", status: "working", elapsedTime: "48分", memo: "資料作成", x: 66, y: 47, joinOrder: 3 },
+    { id: "user-5", name: "田中", avatarType: "male_a", status: "working", elapsedTime: "1時間20分", memo: "ポートフォリオ制作", x: 82, y: 47, joinOrder: 4 },
+    { id: "user-6", name: "伊藤", avatarType: "female_b", status: "working", elapsedTime: "22分", memo: "デザイン確認", x: 16, y: 72, joinOrder: 5 },
+    { id: "user-7", name: "渡辺", avatarType: "male_b", status: "break", elapsedTime: "50分", memo: "休憩中", x: 34, y: 72, joinOrder: 6 },
+    { id: "user-8", name: "山本", avatarType: "female_a", status: "working", elapsedTime: "18分", memo: "資格勉強", x: 51, y: 72, joinOrder: 7 },
+    { id: "user-9", name: "中村", avatarType: "male_a", status: "working", elapsedTime: "42分", memo: "コーディング", x: 68, y: 72, joinOrder: 8 },
+    { id: "user-10", name: "小林", avatarType: "female_b", status: "working", elapsedTime: "27分", memo: "読書", x: 84, y: 72, joinOrder: 9 }
   ];
+  // 椅子と机を共通配置にしたため、すべてのテーマで同じ座席座標を使用します。
+  const focusSeatPositions = [
+    { x: 27, y: 34 },
+    { x: 38, y: 34 },
+    { x: 49, y: 34 },
+    { x: 60, y: 34 },
+    { x: 70, y: 34 },
+    { x: 23, y: 58 },
+    { x: 34, y: 58 },
+    { x: 45, y: 58 },
+    { x: 56, y: 58 },
+    { x: 67, y: 58 }
+  ];
+  const positionedParticipants = participants.map(function (participant, index) {
+    return { ...participant, ...focusSeatPositions[index] };
+  });
   const participantCounts = { focus: 7, casual: 10, night: 2 };
-  return participants.slice(0, participantCounts[roomInfo.theme] || 7);
+  return positionedParticipants.slice(0, participantCounts[roomInfo.theme] || 7);
 }
 
 /** アバターのホバー情報を最前面のUIレイヤーへ表示します。 */
@@ -290,12 +310,14 @@ function hideAvatarTooltip() {
 
 /** 入室者を指定座標へ配置します。 */
 function renderParticipants(participants) {
-  participantLayer.replaceChildren();
+  upperParticipantLayer.replaceChildren();
+  lowerParticipantLayer.replaceChildren();
+  statusBadgeLayer.replaceChildren();
 
-  participants.forEach(function (participant) {
+  participants.forEach(function (participant, index) {
     const participantElement = document.createElement("button");
     participantElement.type = "button";
-    participantElement.className = `participant${participant.status === "break" ? " is-break" : ""}`;
+    participantElement.className = "participant";
     participantElement.style.left = `${participant.x}%`;
     participantElement.style.top = `${participant.y}%`;
     participantElement.setAttribute("aria-label", `${participant.name}さんの情報`);
@@ -314,7 +336,14 @@ function renderParticipants(participants) {
     participantElement.addEventListener("click", function () {
       if (!participant.isMe) selectChatTarget(participant.id);
     });
-    participantLayer.appendChild(participantElement);
+    const targetLayer = index < 5 ? upperParticipantLayer : lowerParticipantLayer;
+    targetLayer.appendChild(participantElement);
+
+    const statusBadge = document.createElement("span");
+    statusBadge.className = `participant-status-badge is-${participant.status}`;
+    statusBadge.style.left = `${participant.x}%`;
+    statusBadge.style.top = `${participant.y}%`;
+    statusBadgeLayer.appendChild(statusBadge);
   });
 }
 
@@ -437,11 +466,14 @@ function renderWorkspace(roomInfo) {
   currentParticipants = participants;
   workspaceRoomName.textContent = roomInfo.roomName;
   workspaceParticipantCount.textContent = `入室者 ${participants.length}人`;
+  workspaceScene.dataset.theme = roomInfo.theme;
   roomBackgroundLayer.src = roomBackgrounds[roomInfo.theme];
   roomBackgroundLayer.alt = `${roomInfo.roomName}の背景`;
 
-  // 集中部屋の背景には椅子が描かれているため、椅子レイヤーを重ねません。
-  chairLayer.hidden = roomInfo.theme === "focus";
+  // 集中部屋の背景には椅子が描かれているため、分割椅子を重ねません。
+  const hideChairLayers = roomInfo.theme === "focus";
+  upperChairLayer.hidden = hideChairLayers;
+  lowerChairLayer.hidden = hideChairLayers;
   changeThemeButton.hidden = !roomInfo.isPrivate;
   renderParticipants(participants);
   populateChatTargets(participants);

@@ -198,20 +198,20 @@
       </header>
 
       <div class="avatar-options" role="group" aria-label="アバターの種類">
-        <button type="button" class="avatar-option" data-avatar="maleA" aria-pressed="false">
-          <img src="work-space-pic/final_アバター_男性A.png" alt="男性Aのアバター">
+        <button type="button" class="avatar-option" data-avatar="male_a" aria-pressed="false">
+          <img src="work-space-pic/avatar-man-A.png" alt="男性Aのアバター">
           <span>男性A</span>
         </button>
-        <button type="button" class="avatar-option" data-avatar="maleB" aria-pressed="false">
-          <img src="work-space-pic/final_アバター_男性B.png" alt="男性Bのアバター">
+        <button type="button" class="avatar-option" data-avatar="male_b" aria-pressed="false">
+          <img src="work-space-pic/avatar-man-B.png" alt="男性Bのアバター">
           <span>男性B</span>
         </button>
-        <button type="button" class="avatar-option" data-avatar="femaleA" aria-pressed="false">
-          <img src="work-space-pic/final_アバター_女性A.png" alt="女性Aのアバター">
+        <button type="button" class="avatar-option" data-avatar="female_a" aria-pressed="false">
+          <img src="work-space-pic/avatar-woman-A.png" alt="女性Aのアバター">
           <span>女性A</span>
         </button>
-        <button type="button" class="avatar-option" data-avatar="femaleB" aria-pressed="false">
-          <img src="work-space-pic/final_アバター_女性B.png" alt="女性Bのアバター">
+        <button type="button" class="avatar-option" data-avatar="female_b" aria-pressed="false">
+          <img src="work-space-pic/avatar-woman-B.png" alt="女性Bのアバター">
           <span>女性B</span>
         </button>
       </div>
@@ -344,10 +344,14 @@
       <section class="workspace-card" aria-label="ワークスペース">
         <div id="workspace-scene" class="workspace-scene">
           <img id="room-background-layer" class="scene-layer background-layer" alt="">
-          <img id="chair-layer" class="scene-layer chair-layer" src="work-space-pic/椅子.png" alt="">
-          <div id="participant-layer" class="scene-layer participant-layer"></div>
-          <img id="desk-layer" class="scene-layer desk-layer" src="work-space-pic/机.png" alt="">
+          <img id="upper-chair-layer" class="scene-layer chair-layer upper-chair-layer" src="work-space-pic/upper-chair.png" alt="">
+          <div id="upper-participant-layer" class="scene-layer participant-layer upper-participant-layer"></div>
+          <img class="scene-layer desk-layer upper-desk-layer" src="work-space-pic/upper-desk.png" alt="">
+          <img id="lower-chair-layer" class="scene-layer chair-layer lower-chair-layer" src="work-space-pic/lower-chair.png" alt="">
+          <div id="lower-participant-layer" class="scene-layer participant-layer lower-participant-layer"></div>
+          <img class="scene-layer desk-layer lower-desk-layer" src="work-space-pic/lower-desk.png" alt="">
 
+          <div id="status-badge-layer" class="scene-layer status-badge-layer" aria-hidden="true"></div>
           <div id="workspace-tooltip" class="workspace-tooltip" role="tooltip" hidden></div>
 
           <div class="workspace-status-controls">

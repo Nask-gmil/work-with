@@ -1,3 +1,27 @@
+/*
+ * ワークスペース素材の共通縮尺です。
+ * この3つの数値を変更すると、全部屋へまとめて反映されます。
+ */
+:root {
+  --upper-chair-scale: 0.54;
+  --upper-chair-offset-x: -1%;
+  --upper-chair-offset-y: -25.8%;
+  --upper-chair-rotate: 1.2deg;
+  --lower-chair-scale: 0.54;
+  --lower-chair-offset-x: -6%;
+  --lower-chair-offset-y: -5.5%;
+  --lower-chair-rotate: 1.3deg;
+  --upper-desk-scale: 0.67;
+  --upper-desk-offset-x: -6%;
+  --upper-desk-offset-y: -19%;
+  --upper-desk-rotate: 1.1deg;
+  --lower-desk-scale: 0.61;
+  --lower-desk-offset-x: -8.5%;
+  --lower-desk-offset-y: -1.5%;
+  --lower-desk-rotate: 2deg;
+  --avatar-scale: 0.8;
+}
+
 .room-page {
   height: 100vh;
   height: 100dvh;
@@ -113,19 +137,46 @@
 }
 
 .chair-layer {
-  z-index: 2;
   object-fit: contain;
+  transform-origin: bottom center;
+}
+
+.upper-chair-layer {
+  z-index: 2;
+  transform: translate(var(--upper-chair-offset-x), var(--upper-chair-offset-y)) scale(var(--upper-chair-scale)) rotate(var(--upper-chair-rotate));
+}
+
+.lower-chair-layer {
+  z-index: 5;
+  transform: translate(var(--lower-chair-offset-x), var(--lower-chair-offset-y)) scale(var(--lower-chair-scale)) rotate(var(--lower-chair-rotate));
 }
 
 .participant-layer {
-  z-index: 3;
   pointer-events: none;
 }
 
 .desk-layer {
-  z-index: 4;
   object-fit: contain;
   pointer-events: none;
+  transform-origin: bottom center;
+}
+
+.upper-participant-layer {
+  z-index: 3;
+}
+
+.upper-desk-layer {
+  z-index: 4;
+  transform: translate(var(--upper-desk-offset-x), var(--upper-desk-offset-y)) rotate(var(--upper-desk-rotate)) scale(var(--upper-desk-scale));
+}
+
+.lower-participant-layer {
+  z-index: 6;
+}
+
+.lower-desk-layer {
+  z-index: 7;
+  transform: translate(var(--lower-desk-offset-x), var(--lower-desk-offset-y)) rotate(var(--lower-desk-rotate)) scale(var(--lower-desk-scale));
 }
 
 .participant {
@@ -140,20 +191,41 @@
   pointer-events: auto;
 }
 
-.participant > img {
+.participant>img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: scale(var(--avatar-scale));
+  transform-origin: bottom center;
   filter: drop-shadow(0 3px 3px rgb(0 0 0 / 45%));
 }
 
-.participant.is-break > img {
-  filter: grayscale(45%) brightness(0.8) drop-shadow(0 3px 3px rgb(0 0 0 / 45%));
+.status-badge-layer {
+  z-index: 8;
+  pointer-events: none;
+}
+
+.participant-status-badge {
+  position: absolute;
+  width: clamp(8px, 1.1vw, 13px);
+  height: clamp(8px, 1.1vw, 13px);
+  transform: translate(115%, -390%);
+  border: 2px solid rgb(255 255 255 / 85%);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 45%);
+}
+
+.participant-status-badge.is-working {
+  background-color: #55a96a;
+}
+
+.participant-status-badge.is-break {
+  background-color: #d4ad4f;
 }
 
 .workspace-tooltip {
   position: absolute;
-  z-index: 6;
+  z-index: 9;
   width: max-content;
   max-width: 210px;
   padding: 10px 12px;
@@ -180,7 +252,7 @@
 
 .workspace-status-controls {
   position: absolute;
-  z-index: 5;
+  z-index: 9;
   left: 12px;
   bottom: 12px;
   display: flex;
@@ -650,12 +722,12 @@
   background-color: #303030;
 }
 
-.room-theme-option input:checked + span {
+.room-theme-option input:checked+span {
   background-color: rgb(50 145 255 / 13%);
   border-color: var(--blue-accent);
 }
 
-.room-theme-option input:focus-visible + span {
+.room-theme-option input:focus-visible+span {
   outline: 2px solid var(--blue-accent);
   outline-offset: 2px;
 }

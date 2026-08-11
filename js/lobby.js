@@ -13,6 +13,21 @@ const avatarError = document.getElementById("avatar-error");
 
 let selectedAvatar = null;
 
+const legacyAvatarTypes = {
+  maleA: "male_a",
+  maleB: "male_b",
+  femaleA: "female_a",
+  femaleB: "female_b"
+};
+
+/** 旧UIの保存値を、v6で確定したDB向けの形式へ変換します。 */
+function normalizeAvatarType(avatarType) {
+  const normalizedType = legacyAvatarTypes[avatarType] || avatarType;
+  return ["male_a", "male_b", "female_a", "female_b"].includes(normalizedType)
+    ? normalizedType
+    : null;
+}
+
 /** セッションから現在のユーザー名を取得します。 */
 function getCurrentUsername() {
   return sessionStorage.getItem("username") || "yamada_taro";
@@ -21,13 +36,24 @@ function getCurrentUsername() {
 /** 現在のユーザーが保存済みのアバターを取得します。 */
 function getSelectedAvatar() {
   const username = getCurrentUsername();
-  return localStorage.getItem(`avatarType:${username}`);
+  const storageKey = `avatarType:${username}`;
+  const savedAvatar = localStorage.getItem(storageKey);
+  const normalizedAvatar = normalizeAvatarType(savedAvatar);
+
+  // camelCase形式で保存済みの場合は、読み込み時に一度だけ移行します。
+  if (normalizedAvatar && normalizedAvatar !== savedAvatar) {
+    localStorage.setItem(storageKey, normalizedAvatar);
+  }
+  return normalizedAvatar;
 }
 
 /** 選択したアバターを現在のユーザー専用のキーで保存します。 */
 function saveSelectedAvatar(avatarType) {
   const username = getCurrentUsername();
-  localStorage.setItem(`avatarType:${username}`, avatarType);
+  const normalizedAvatar = normalizeAvatarType(avatarType);
+  if (normalizedAvatar) {
+    localStorage.setItem(`avatarType:${username}`, normalizedAvatar);
+  }
 }
 
 /** アバター選択モーダルを表示します。将来の変更画面からも呼び出せます。 */
