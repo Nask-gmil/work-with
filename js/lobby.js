@@ -130,6 +130,7 @@ async function logout() {
       credentials: "same-origin"
     });
   } finally {
+    clearCurrentPrivateRoom();
     clearAuthenticatedUser();
     closeAvatarModal();
     showView("login");
@@ -154,10 +155,10 @@ function openCreateRoomView() {
  * 入力された部屋IDを使って入室する仮処理です。
  * 現段階では部屋が実在するかどうかは確認しません。
  */
-function joinPrivateRoom() {
-  const roomId = roomIdInput.value.trim();
+async function joinPrivateRoom() {
+  const roomCode = roomIdInput.value.trim().toUpperCase();
 
-  if (roomId === "") {
+  if (roomCode === "") {
     roomIdError.textContent = "部屋IDを入力してください";
     roomIdInput.setAttribute("aria-invalid", "true");
     roomIdInput.focus();
@@ -166,15 +167,35 @@ function joinPrivateRoom() {
 
   roomIdError.textContent = "";
   roomIdInput.removeAttribute("aria-invalid");
-  const privateRoom = findPrivateRoomById(roomId);
+  roomIdInput.value = roomCode;
 
-  if (!privateRoom) {
-    roomIdError.textContent = "その部屋IDは存在しません";
+  try {
+    const response = await fetch(
+      `/api/rooms/code/${encodeURIComponent(roomCode)}`,
+      { credentials: "same-origin" }
+    );
+
+    if (response.status === 401) {
+      returnToLoginAfterRoomUnauthorized();
+      return;
+    }
+    if (response.status === 404) {
+      roomIdError.textContent = "その部屋IDは存在しません。";
+      roomIdInput.setAttribute("aria-invalid", "true");
+      return;
+    }
+    if (!response.ok) {
+      roomIdError.textContent = "部屋に参加できませんでした";
+      roomIdInput.setAttribute("aria-invalid", "true");
+      return;
+    }
+
+    const privateRoom = await response.json();
+    enterPrivateRoom(privateRoom);
+  } catch (error) {
+    roomIdError.textContent = "部屋に参加できませんでした";
     roomIdInput.setAttribute("aria-invalid", "true");
-    return;
   }
-
-  enterPrivateRoom(privateRoom.roomId);
 }
 
 // HTMLには処理を直接書かず、ここで各ボタンにイベントを設定します。

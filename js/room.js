@@ -145,14 +145,19 @@ function getRoomInfo(queryString) {
   const params = new URLSearchParams(queryString);
   const roomId = params.get("roomId");
   const requestedTheme = params.get("theme");
-  const privateRoom = roomId ? findPrivateRoomById(roomId) : null;
+  const savedPrivateRoom = roomId ? loadCurrentPrivateRoom() : null;
+  const privateRoom = savedPrivateRoom
+    && String(savedPrivateRoom.roomId) === roomId
+    ? savedPrivateRoom
+    : null;
 
   if (privateRoom) {
     return {
       roomId: privateRoom.roomId,
+      roomCode: privateRoom.roomCode,
       roomName: privateRoom.roomName,
       theme: privateRoom.theme,
-      createdBy: privateRoom.createdBy,
+      isCreator: privateRoom.isCreator,
       isPrivate: true
     };
   }
@@ -162,23 +167,24 @@ function getRoomInfo(queryString) {
       roomId: null,
       roomName: roomThemeNames[requestedTheme],
       theme: requestedTheme,
-      createdBy: null,
+      isCreator: false,
       isPrivate: false
     };
   }
 
-  return { roomId: null, roomName: "部屋", theme: "focus", createdBy: null, isPrivate: false };
+  return { roomId: null, roomName: "部屋", theme: "focus", isCreator: false, isPrivate: false };
 }
 
 /** 現在開いている保存済みプライベート部屋を取得します。 */
 function getCurrentPrivateRoom() {
   if (!currentRoomInfo?.isPrivate || !currentRoomInfo.roomId) return null;
-  return findPrivateRoomById(currentRoomInfo.roomId) || null;
+  const room = loadCurrentPrivateRoom();
+  return room && room.roomId === currentRoomInfo.roomId ? room : null;
 }
 
 /** 作成者判定を一か所で行います。 */
 function isCurrentUserRoomCreator(room = getCurrentPrivateRoom()) {
-  return Boolean(room && room.createdBy === getWorkspaceUsername());
+  return Boolean(room?.isCreator);
 }
 
 /** 作成者または閲覧者に合わせてモーダル内容を描画します。 */
@@ -234,14 +240,9 @@ function saveRoomTheme() {
   const room = getCurrentPrivateRoom();
   if (!room || !isCurrentUserRoomCreator(room) || !selectedRoomTheme) return;
 
-  const privateRooms = getPrivateRooms();
-  const targetRoom = privateRooms.find(function (privateRoom) {
-    return privateRoom.roomId === room.roomId;
-  });
-  if (!targetRoom) return;
-
-  targetRoom.theme = selectedRoomTheme;
-  savePrivateRooms(privateRooms);
+  // テーマ更新APIは未実装のため、現在表示中のタブだけ一時的に反映します。
+  room.theme = selectedRoomTheme;
+  saveCurrentPrivateRoom(room);
   applyRoomTheme(selectedRoomTheme);
   closeRoomSettingsModal();
 }

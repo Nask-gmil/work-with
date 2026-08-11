@@ -173,7 +173,8 @@
               type="text"
               id="room-id"
               name="roomId"
-              placeholder="例: abc-1234"
+              placeholder="例: A7K9PX"
+              maxlength="6"
               autocomplete="off"
               aria-describedby="room-id-error"
             >
@@ -307,6 +308,7 @@
           </label>
         </fieldset>
 
+        <p id="create-room-error" class="error-message" aria-live="polite"></p>
         <button type="submit" class="create-submit-button">作成する</button>
       </form>
 
