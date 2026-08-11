@@ -72,11 +72,11 @@ let selectedRoomTheme = null;
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
   all: [
-    { senderId: "user-2", senderName: "佐藤", content: "今日もよろしくお願いします" },
+    { senderId: "seat-upper-2", senderName: "上段2", content: "今日もよろしくお願いします" },
     { senderId: "me", senderName: "自分", content: "よろしくお願いします" }
   ],
-  "user-2": [
-    { senderId: "user-2", senderName: "佐藤", content: "Javaのエラーについて質問したいです" },
+  "seat-upper-2": [
+    { senderId: "seat-upper-2", senderName: "上段2", content: "Javaのエラーについて質問したいです" },
     { senderId: "me", senderName: "自分", content: "見てみます" }
   ]
 };
@@ -250,36 +250,35 @@ function saveRoomTheme() {
 function getParticipants(roomInfo) {
   const username = getWorkspaceUsername();
   const myAvatar = normalizeAvatarType(localStorage.getItem(`avatarType:${username}`)) || "male_a";
-  const participants = [
-    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, x: 27, y: 34, joinOrder: 0, isMe: true },
-    { id: "user-2", name: "佐藤", avatarType: "male_b", status: "working", elapsedTime: "35分", memo: "Java学習", x: 34, y: 47, joinOrder: 1 },
-    { id: "user-3", name: "鈴木", avatarType: "female_a", status: "break", elapsedTime: "1時間05分", memo: "", x: 50, y: 47, joinOrder: 2 },
-    { id: "user-4", name: "高橋", avatarType: "female_b", status: "working", elapsedTime: "48分", memo: "資料作成", x: 66, y: 47, joinOrder: 3 },
-    { id: "user-5", name: "田中", avatarType: "male_a", status: "working", elapsedTime: "1時間20分", memo: "ポートフォリオ制作", x: 82, y: 47, joinOrder: 4 },
-    { id: "user-6", name: "伊藤", avatarType: "female_b", status: "working", elapsedTime: "22分", memo: "デザイン確認", x: 16, y: 72, joinOrder: 5 },
-    { id: "user-7", name: "渡辺", avatarType: "male_b", status: "break", elapsedTime: "50分", memo: "休憩中", x: 34, y: 72, joinOrder: 6 },
-    { id: "user-8", name: "山本", avatarType: "female_a", status: "working", elapsedTime: "18分", memo: "資格勉強", x: 51, y: 72, joinOrder: 7 },
-    { id: "user-9", name: "中村", avatarType: "male_a", status: "working", elapsedTime: "42分", memo: "コーディング", x: 68, y: 72, joinOrder: 8 },
-    { id: "user-10", name: "小林", avatarType: "female_b", status: "working", elapsedTime: "27分", memo: "読書", x: 84, y: 72, joinOrder: 9 }
+  // 全テーマ共通の10席です。アバター位置はこのx・yだけで調整できます。
+  const seatPositions = [
+    { seatId: "upper-1", x: 26, y: 31.6 },
+    { seatId: "upper-2", x: 37, y: 35 },
+    { seatId: "upper-3", x: 48, y: 38 },
+    { seatId: "upper-4", x: 58.8, y: 40.8 },
+    { seatId: "upper-5", x: 69, y: 44 },
+    { seatId: "lower-1", x: 22, y: 56 },
+    { seatId: "lower-2", x: 32, y: 59 },
+    { seatId: "lower-3", x: 43, y: 62 },
+    { seatId: "lower-4", x: 54, y: 65 },
+    { seatId: "lower-5", x: 65, y: 69 }
   ];
-  // 椅子と机を共通配置にしたため、すべてのテーマで同じ座席座標を使用します。
-  const focusSeatPositions = [
-    { x: 27, y: 34 },
-    { x: 38, y: 34 },
-    { x: 49, y: 34 },
-    { x: 60, y: 34 },
-    { x: 70, y: 34 },
-    { x: 23, y: 58 },
-    { x: 34, y: 58 },
-    { x: 45, y: 58 },
-    { x: 56, y: 58 },
-    { x: 67, y: 58 }
+  const participants = [
+    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, joinOrder: 0, isMe: true },
+    { id: "seat-upper-2", name: "上段2", avatarType: "male_b", status: "working", elapsedTime: "35分", memo: "Java学習", joinOrder: 1 },
+    { id: "seat-upper-3", name: "上段3", avatarType: "female_a", status: "break", elapsedTime: "1時間05分", memo: "", joinOrder: 2 },
+    { id: "seat-upper-4", name: "上段4", avatarType: "female_b", status: "working", elapsedTime: "48分", memo: "資料作成", joinOrder: 3 },
+    { id: "seat-upper-5", name: "上段5", avatarType: "male_a", status: "working", elapsedTime: "1時間20分", memo: "ポートフォリオ制作", joinOrder: 4 },
+    { id: "seat-lower-1", name: "下段1", avatarType: "female_b", status: "working", elapsedTime: "22分", memo: "デザイン確認", joinOrder: 5 },
+    { id: "seat-lower-2", name: "下段2", avatarType: "male_b", status: "break", elapsedTime: "50分", memo: "休憩中", joinOrder: 6 },
+    { id: "seat-lower-3", name: "下段3", avatarType: "female_a", status: "working", elapsedTime: "18分", memo: "資格勉強", joinOrder: 7 },
+    { id: "seat-lower-4", name: "下段4", avatarType: "male_a", status: "working", elapsedTime: "42分", memo: "コーディング", joinOrder: 8 },
+    { id: "seat-lower-5", name: "下段5", avatarType: "female_b", status: "working", elapsedTime: "27分", memo: "読書", joinOrder: 9 }
   ];
   const positionedParticipants = participants.map(function (participant, index) {
-    return { ...participant, ...focusSeatPositions[index] };
+    return { ...participant, ...seatPositions[index] };
   });
-  const participantCounts = { focus: 7, casual: 10, night: 2 };
-  return positionedParticipants.slice(0, participantCounts[roomInfo.theme] || 7);
+  return positionedParticipants;
 }
 
 /** アバターのホバー情報を最前面のUIレイヤーへ表示します。 */
@@ -314,7 +313,7 @@ function renderParticipants(participants) {
   lowerParticipantLayer.replaceChildren();
   statusBadgeLayer.replaceChildren();
 
-  participants.forEach(function (participant, index) {
+  participants.forEach(function (participant) {
     const participantElement = document.createElement("button");
     participantElement.type = "button";
     participantElement.className = "participant";
@@ -336,7 +335,9 @@ function renderParticipants(participants) {
     participantElement.addEventListener("click", function () {
       if (!participant.isMe) selectChatTarget(participant.id);
     });
-    const targetLayer = index < 5 ? upperParticipantLayer : lowerParticipantLayer;
+    const targetLayer = participant.seatId.startsWith("upper-")
+      ? upperParticipantLayer
+      : lowerParticipantLayer;
     targetLayer.appendChild(participantElement);
 
     const statusBadge = document.createElement("span");

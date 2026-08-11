@@ -1,0 +1,11 @@
+# Mavenのビルド結果
+target/
+
+# SQLiteが実行時に作成するデータベースファイル
+db/*.db
+db/*.db-shm
+db/*.db-wal
+
+# IDE固有の設定
+.idea/
+*.iml
