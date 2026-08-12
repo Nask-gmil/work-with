@@ -340,6 +340,7 @@
         <p id="workspace-participant-count">入室者 0人</p>
       </div>
       <div class="room-header-actions">
+        <p id="leave-room-error" class="error-message" aria-live="polite"></p>
         <button type="button" id="change-avatar-button">アバター変更</button>
         <button type="button" id="change-theme-button" hidden>テーマ変更</button>
         <button type="button" id="leave-room-button" class="leave-room-button">退室する</button>
@@ -364,6 +365,7 @@
             <span>自分:</span>
             <button type="button" class="status-button is-active" data-status="working">作業中</button>
             <button type="button" class="status-button" data-status="break">休憩中</button>
+            <span id="status-error" class="error-message" aria-live="polite"></span>
           </div>
         </div>
       </section>

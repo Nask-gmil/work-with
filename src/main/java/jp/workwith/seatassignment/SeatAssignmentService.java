@@ -78,6 +78,47 @@ public class SeatAssignmentService {
         }
     }
 
+    /** URLの部屋と現在の着席先が一致するときだけ、本人の割り当てを削除します。 */
+    @Transactional
+    public boolean leaveRoom(long roomId, long userId) {
+        roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+        Optional<SeatAssignment> assignment = seatAssignmentRepository.findByUserId(userId);
+        if (assignment.isEmpty()) {
+            return false;
+        }
+
+        Seat assignedSeat = seatRepository.findById(assignment.get().getSeatId())
+                .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
+        if (assignedSeat.getRoomId() != roomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+        return seatAssignmentRepository.deleteBySeatId(assignment.get().getSeatId());
+    }
+
+    @Transactional
+    public RoomParticipant updateStatus(long roomId, long userId, String status) {
+        if (!"working".equals(status) && !"break".equals(status)) {
+            throw new IllegalArgumentException("statusはworkingまたはbreakを指定してください");
+        }
+        roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+
+        SeatAssignment assignment = seatAssignmentRepository.findByUserId(userId)
+                .orElseThrow(SeatAssignmentNotFoundException::new);
+        Seat assignedSeat = seatRepository.findById(assignment.getSeatId())
+                .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
+        if (assignedSeat.getRoomId() != roomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+        if (!seatAssignmentRepository.updateStatusBySeatId(assignment.getSeatId(), status)) {
+            throw new IllegalStateException("状態を更新する座席割り当てが見つかりません");
+        }
+
+        return seatAssignmentRepository.findParticipantsByRoomId(roomId).stream()
+                .filter(participant -> participant.userId() == userId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("更新した座席割り当てが見つかりません"));
+    }
+
     private SeatAssignment validateExistingAssignment(
             long requestedRoomId,
             SeatAssignment existingAssignment) {

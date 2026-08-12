@@ -129,6 +129,120 @@ class SeatAssignmentServiceTests {
         }
     }
 
+    @Test
+    void leavesOnlyTheRequestedUsersSeatAndKeepsTheSeatItself() {
+        TestData data = createTestData(1, 3);
+        try {
+            long roomId = data.rooms().getFirst().getRoomId();
+            SeatAssignment first = seatAssignmentService.autoAssignSeat(
+                    roomId, data.users().get(0).getUserId());
+            SeatAssignment second = seatAssignmentService.autoAssignSeat(
+                    roomId, data.users().get(1).getUserId());
+
+            assertThat(seatAssignmentService.leaveRoom(roomId, data.users().get(0).getUserId()))
+                    .isTrue();
+            assertThat(seatAssignmentRepository.findByUserId(data.users().get(0).getUserId()))
+                    .isEmpty();
+            assertThat(seatAssignmentRepository.findByUserId(data.users().get(1).getUserId()))
+                    .get().extracting(SeatAssignment::getSeatId).isEqualTo(second.getSeatId());
+            assertThat(seatRepository.findById(first.getSeatId())).isPresent();
+        } finally {
+            cleanup(data);
+        }
+    }
+
+    @Test
+    void leaveIsIdempotentAndDoesNotDeleteAnAssignmentFromAnotherRoom() {
+        TestData data = createTestData(2, 2);
+        try {
+            long firstRoomId = data.rooms().get(0).getRoomId();
+            long secondRoomId = data.rooms().get(1).getRoomId();
+            long userId = data.users().getFirst().getUserId();
+            SeatAssignment assignment = seatAssignmentService.autoAssignSeat(firstRoomId, userId);
+
+            assertThatThrownBy(() -> seatAssignmentService.leaveRoom(secondRoomId, userId))
+                    .isInstanceOf(SeatAssignmentRoomMismatchException.class);
+            assertThat(seatAssignmentRepository.findByUserId(userId))
+                    .get().extracting(SeatAssignment::getSeatId)
+                    .isEqualTo(assignment.getSeatId());
+
+            assertThat(seatAssignmentService.leaveRoom(firstRoomId, userId)).isTrue();
+            assertThat(seatAssignmentService.leaveRoom(firstRoomId, userId)).isFalse();
+
+            SeatAssignment moved = seatAssignmentService.autoAssignSeat(secondRoomId, userId);
+            assertThat(seatRepository.findById(moved.getSeatId()).orElseThrow().getRoomId())
+                    .isEqualTo(secondRoomId);
+        } finally {
+            cleanup(data);
+        }
+    }
+
+    @Test
+    void updatesOnlyStatusAndCanSwitchItBack() {
+        TestData data = createTestData(1, 1);
+        try {
+            long roomId = data.rooms().getFirst().getRoomId();
+            long userId = data.users().getFirst().getUserId();
+            SeatAssignment original = seatAssignmentService.autoAssignSeat(roomId, userId);
+
+            RoomParticipant onBreak = seatAssignmentService.updateStatus(roomId, userId, "break");
+            assertThat(onBreak.status()).isEqualTo("break");
+            assertThat(onBreak.seatId()).isEqualTo(original.getSeatId());
+            assertThat(onBreak.userId()).isEqualTo(original.getUserId());
+            assertThat(onBreak.workContent()).isEqualTo(original.getWorkContent());
+            assertThat(onBreak.startedAt()).isEqualTo(original.getStartedAt());
+            assertThat(onBreak.lastHeartbeatAt()).isEqualTo(original.getLastHeartbeatAt());
+
+            assertThat(seatAssignmentService.updateStatus(roomId, userId, "working").status())
+                    .isEqualTo("working");
+        } finally {
+            cleanup(data);
+        }
+    }
+
+    @Test
+    void rejectsInvalidStatusWithoutChangingTheAssignment() {
+        TestData data = createTestData(1, 1);
+        try {
+            long roomId = data.rooms().getFirst().getRoomId();
+            long userId = data.users().getFirst().getUserId();
+            seatAssignmentService.autoAssignSeat(roomId, userId);
+
+            for (String invalidStatus : new String[] {"away", "", null}) {
+                assertThatThrownBy(() -> seatAssignmentService.updateStatus(
+                        roomId, userId, invalidStatus))
+                        .isInstanceOf(IllegalArgumentException.class);
+            }
+            assertThat(seatAssignmentRepository.findByUserId(userId))
+                    .get().extracting(SeatAssignment::getStatus).isEqualTo("working");
+        } finally {
+            cleanup(data);
+        }
+    }
+
+    @Test
+    void rejectsStatusUpdateWhenUnseatedOrAssignedToAnotherRoom() {
+        TestData data = createTestData(2, 1);
+        try {
+            long firstRoomId = data.rooms().get(0).getRoomId();
+            long secondRoomId = data.rooms().get(1).getRoomId();
+            long userId = data.users().getFirst().getUserId();
+
+            assertThatThrownBy(() -> seatAssignmentService.updateStatus(
+                    firstRoomId, userId, "break"))
+                    .isInstanceOf(SeatAssignmentNotFoundException.class);
+
+            seatAssignmentService.autoAssignSeat(firstRoomId, userId);
+            assertThatThrownBy(() -> seatAssignmentService.updateStatus(
+                    secondRoomId, userId, "break"))
+                    .isInstanceOf(SeatAssignmentRoomMismatchException.class);
+            assertThat(seatAssignmentRepository.findByUserId(userId))
+                    .get().extracting(SeatAssignment::getStatus).isEqualTo("working");
+        } finally {
+            cleanup(data);
+        }
+    }
+
     private int seatNumber(SeatAssignment assignment) {
         return seatRepository.findById(assignment.getSeatId()).orElseThrow().getSeatNumber();
     }

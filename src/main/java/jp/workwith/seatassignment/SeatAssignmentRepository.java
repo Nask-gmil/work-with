@@ -101,6 +101,13 @@ public class SeatAssignmentRepository {
                 "DELETE FROM SEAT_ASSIGNMENTS WHERE seat_id = ?", seatId) == 1;
     }
 
+    public boolean updateStatusBySeatId(long seatId, String status) {
+        return jdbcTemplate.update(
+                "UPDATE SEAT_ASSIGNMENTS SET status = ? WHERE seat_id = ?",
+                status,
+                seatId) == 1;
+    }
+
     private Optional<SeatAssignment> findOne(String sql, long parameter) {
         return jdbcTemplate.query(sql, SEAT_ASSIGNMENT_ROW_MAPPER, parameter)
                 .stream().findFirst();

@@ -13,7 +13,9 @@ const workspaceTooltip = document.getElementById("workspace-tooltip");
 const changeAvatarButton = document.getElementById("change-avatar-button");
 const changeThemeButton = document.getElementById("change-theme-button");
 const leaveRoomButton = document.getElementById("leave-room-button");
+const leaveRoomError = document.getElementById("leave-room-error");
 const statusButtons = document.querySelectorAll(".status-button");
+const statusError = document.getElementById("status-error");
 const sideTabs = document.querySelectorAll(".side-tab");
 const sidePanelContent = document.querySelector(".side-panel-content");
 const selfPanel = document.getElementById("self-panel");
@@ -515,14 +517,53 @@ function renderWorkspace(roomInfo, participants = currentParticipants) {
   populateChatTargets(participants);
 }
 
-/** 自分の状態だけを画面上で切り替えます。 */
+/** サーバーで確定した自分の状態を画面へ反映します。 */
 function setMyStatus(status) {
   myStatus = status;
   statusButtons.forEach(function (button) {
     button.classList.toggle("is-active", button.dataset.status === status);
   });
+}
 
-  if (currentRoomInfo) renderParticipants(currentParticipants);
+/** ログイン中のユーザー本人の状態を更新します。 */
+async function updateMyStatus(status) {
+  if (!currentRoomInfo?.roomId) return;
+
+  statusError.textContent = "";
+  statusButtons.forEach(function (button) { button.disabled = true; });
+  try {
+    const response = await fetch(
+      `/api/rooms/${encodeURIComponent(currentRoomInfo.roomId)}/seat-assignments/me/status`,
+      {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      }
+    );
+    if (response.status === 401) {
+      clearCurrentPrivateRoom();
+      clearAuthenticatedUser();
+      showView("login");
+      return;
+    }
+    const responseBody = await response.json().catch(function () { return null; });
+    if (!response.ok) {
+      throw new Error(responseBody?.message || "状態の更新に失敗しました");
+    }
+
+    currentParticipants = currentParticipants.map(function (participant) {
+      return participant.isMe
+        ? { ...participant, status: responseBody.status }
+        : participant;
+    });
+    setMyStatus(responseBody.status);
+    renderParticipants(currentParticipants);
+  } catch (error) {
+    statusError.textContent = error.message;
+  } finally {
+    statusButtons.forEach(function (button) { button.disabled = false; });
+  }
 }
 
 /** 既存のアバター選択モーダルを部屋画面から開きます。 */
@@ -544,6 +585,10 @@ async function initializeRoom(queryString) {
   renderWorkspace(currentRoomInfo, currentParticipants);
   try {
     currentParticipants = await loadRoomParticipants(currentRoomInfo.roomId);
+    const myParticipant = currentParticipants.find(function (participant) {
+      return participant.isMe;
+    });
+    if (myParticipant) setMyStatus(myParticipant.status);
     renderWorkspace(currentRoomInfo, currentParticipants);
   } catch (error) {
     currentParticipants = [];
@@ -554,13 +599,41 @@ async function initializeRoom(queryString) {
 
 changeAvatarButton.addEventListener("click", openAvatarModal);
 changeThemeButton.addEventListener("click", openRoomSettingsModal);
-leaveRoomButton.addEventListener("click", function () {
-  showView("lobby");
+leaveRoomButton.addEventListener("click", async function () {
+  if (!currentRoomInfo?.roomId) return;
+
+  leaveRoomError.textContent = "";
+  leaveRoomButton.disabled = true;
+  try {
+    const response = await fetch(
+      `/api/rooms/${encodeURIComponent(currentRoomInfo.roomId)}/seat-assignments/me`,
+      { method: "DELETE", credentials: "same-origin" }
+    );
+    if (response.status === 401) {
+      clearCurrentPrivateRoom();
+      clearAuthenticatedUser();
+      showView("login");
+      return;
+    }
+    if (!response.ok) {
+      const responseBody = await response.json().catch(function () { return null; });
+      throw new Error(responseBody?.message || "退席処理に失敗しました");
+    }
+
+    clearCurrentPrivateRoom();
+    currentRoomInfo = null;
+    currentParticipants = [];
+    showView("lobby");
+  } catch (error) {
+    leaveRoomError.textContent = error.message;
+  } finally {
+    leaveRoomButton.disabled = false;
+  }
 });
 
 statusButtons.forEach(function (button) {
-  button.addEventListener("click", function () {
-    setMyStatus(button.dataset.status);
+  button.addEventListener("click", async function () {
+    await updateMyStatus(button.dataset.status);
   });
 });
 
