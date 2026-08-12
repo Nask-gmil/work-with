@@ -72,9 +72,14 @@ let selectedChatTarget = "all";
 let selectedRoomTheme = null;
 let roomStompClient = null;
 let roomSubscription = null;
+let intentionalRoomWebSocketDisconnect = true;
+let roomWebSocketHasConnected = false;
 let roomParticipantsRefreshInProgress = false;
 let roomParticipantsRefreshRequested = false;
 let roomParticipantsRefreshRoomId = null;
+const HEARTBEAT_INTERVAL_MS = 15000;
+let heartbeatIntervalId = null;
+const heartbeatRequestsInProgress = new Set();
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
@@ -352,8 +357,86 @@ function handleRoomRealtimeEvent(event) {
   refreshRoomParticipants(eventRoomId);
 }
 
+/** 現在の部屋に着席中であることをサーバーへ通知します。 */
+async function sendHeartbeat(roomId) {
+  if (heartbeatRequestsInProgress.has(roomId)
+      || Number(currentRoomInfo?.roomId) !== roomId) return;
+  heartbeatRequestsInProgress.add(roomId);
+  try {
+    const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/heartbeat`, {
+      method: "POST",
+      credentials: "same-origin"
+    });
+    if (response.status === 401) {
+      stopHeartbeat();
+      clearCurrentPrivateRoom();
+      clearAuthenticatedUser();
+      showView("login");
+      return;
+    }
+    if (!response.ok) {
+      console.warn("heartbeatの更新に失敗しました", response.status);
+    }
+  } catch (error) {
+    console.warn("heartbeatの送信に失敗しました", error);
+  } finally {
+    heartbeatRequestsInProgress.delete(roomId);
+  }
+}
+
+function stopHeartbeat() {
+  if (heartbeatIntervalId !== null) {
+    window.clearInterval(heartbeatIntervalId);
+    heartbeatIntervalId = null;
+  }
+}
+
+function startHeartbeat(roomId) {
+  stopHeartbeat();
+  const normalizedRoomId = Number(roomId);
+  if (!Number.isInteger(normalizedRoomId) || normalizedRoomId <= 0) return;
+  sendHeartbeat(normalizedRoomId);
+  heartbeatIntervalId = window.setInterval(function () {
+    sendHeartbeat(normalizedRoomId);
+  }, HEARTBEAT_INTERVAL_MS);
+}
+
+/** 再接続後にDBの現在状態を取得し、timeout済みならロビーへ戻します。 */
+async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
+  try {
+    const participants = await loadRoomParticipants(roomId);
+    if (roomStompClient !== client
+        || Number(currentRoomInfo?.roomId) !== roomId) return;
+
+    const loginUserId = Number(getAuthenticatedUser()?.userId);
+    const canIdentifyCurrentUser = Number.isInteger(loginUserId) && loginUserId > 0;
+    const currentUserIsSeated = participants.some(function (participant) {
+      return participant.isMe;
+    });
+
+    if (canIdentifyCurrentUser && !currentUserIsSeated) {
+      stopHeartbeat();
+      disconnectRoomWebSocket();
+      clearCurrentPrivateRoom();
+      currentRoomInfo = null;
+      currentParticipants = [];
+      window.alert("接続が長時間途切れたため退席しました");
+      showView("lobby");
+      return;
+    }
+
+    currentParticipants = participants;
+    renderWorkspace(currentRoomInfo, currentParticipants);
+    console.log("Room state refreshed");
+  } catch (error) {
+    console.warn("WebSocket再接続後の参加者同期に失敗しました", error);
+  }
+}
+
 /** SPAで残った購読と接続を終了します。座席の退席処理は行いません。 */
 function disconnectRoomWebSocket() {
+  intentionalRoomWebSocketDisconnect = true;
+  roomWebSocketHasConnected = false;
   if (roomSubscription) {
     try {
       roomSubscription.unsubscribe();
@@ -384,14 +467,32 @@ function connectRoomWebSocket(roomId) {
   }
 
   const socketProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  intentionalRoomWebSocketDisconnect = false;
+  roomWebSocketHasConnected = false;
   const client = new window.StompJs.Client({
     brokerURL: `${socketProtocol}//${window.location.host}/ws`,
-    reconnectDelay: 0,
+    reconnectDelay: 1000,
+    reconnectTimeMode: window.StompJs.ReconnectionTimeMode?.EXPONENTIAL,
+    maxReconnectDelay: 30000,
     onConnect: function () {
       if (roomStompClient !== client
-          || Number(currentRoomInfo?.roomId) !== normalizedRoomId) return;
-      console.log("WebSocket connected");
-      const destination = `/topic/room/${normalizedRoomId}`;
+          || intentionalRoomWebSocketDisconnect) return;
+      const activeRoomId = Number(currentRoomInfo?.roomId);
+      if (!Number.isInteger(activeRoomId) || activeRoomId <= 0) return;
+
+      if (roomSubscription) {
+        try {
+          roomSubscription.unsubscribe();
+        } catch (error) {
+          console.warn("古いWebSocket購読の解除に失敗しました", error);
+        }
+        roomSubscription = null;
+      }
+
+      console.log(roomWebSocketHasConnected
+        ? "WebSocket reconnected"
+        : "WebSocket connected");
+      const destination = `/topic/room/${activeRoomId}`;
       roomSubscription = client.subscribe(destination, function (message) {
         try {
           const event = JSON.parse(message.body);
@@ -401,13 +502,25 @@ function connectRoomWebSocket(roomId) {
           console.error("WebSocket通知の解析に失敗しました", error);
         }
       });
-      console.log(`Subscribed to ${destination}`);
+      console.log(roomWebSocketHasConnected
+        ? `Resubscribed to ${destination}`
+        : `Subscribed to ${destination}`);
+      roomWebSocketHasConnected = true;
+      synchronizeRoomAfterWebSocketConnect(client, activeRoomId);
     },
     onStompError: function (frame) {
       console.error("WebSocketのSTOMPエラー", frame.headers.message);
     },
     onWebSocketError: function (error) {
-      console.error("WebSocket接続に失敗しました", error);
+      if (roomStompClient === client && !intentionalRoomWebSocketDisconnect) {
+        console.warn("WebSocket接続に失敗しました。自動再接続を待機します", error);
+      }
+    },
+    onWebSocketClose: function () {
+      if (roomStompClient === client && !intentionalRoomWebSocketDisconnect) {
+        roomSubscription = null;
+        console.warn("WebSocket disconnected. Reconnecting WebSocket...");
+      }
     }
   });
   roomStompClient = client;
@@ -679,6 +792,8 @@ function openAvatarModal() {
 
 /** URLに対応する部屋を初期表示します。 */
 async function initializeRoom(queryString) {
+  stopHeartbeat();
+  disconnectRoomWebSocket();
   currentRoomInfo = getRoomInfo(queryString);
   myStatus = "working";
   roomEnteredAt = Date.now();
@@ -701,7 +816,9 @@ async function initializeRoom(queryString) {
     renderWorkspace(currentRoomInfo, currentParticipants);
     console.error(error);
   }
+  if (document.getElementById("room-view").hidden) return;
   connectRoomWebSocket(currentRoomInfo.roomId);
+  startHeartbeat(currentRoomInfo.roomId);
 }
 
 changeAvatarButton.addEventListener("click", openAvatarModal);
@@ -728,6 +845,7 @@ leaveRoomButton.addEventListener("click", async function () {
     }
 
     clearCurrentPrivateRoom();
+    stopHeartbeat();
     disconnectRoomWebSocket();
     currentRoomInfo = null;
     currentParticipants = [];
@@ -801,6 +919,7 @@ document.addEventListener("viewchange", function (event) {
   if (event.detail.view === "room") {
     initializeRoom(event.detail.query);
   } else {
+    stopHeartbeat();
     disconnectRoomWebSocket();
   }
 });

@@ -119,6 +119,23 @@ public class SeatAssignmentService {
                 .orElseThrow(() -> new IllegalStateException("更新した座席割り当てが見つかりません"));
     }
 
+    @Transactional
+    public void updateHeartbeat(long roomId, long userId) {
+        roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+        SeatAssignment assignment = seatAssignmentRepository.findByUserId(userId)
+                .orElseThrow(SeatAssignmentNotFoundException::new);
+        Seat assignedSeat = seatRepository.findById(assignment.getSeatId())
+                .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
+        if (assignedSeat.getRoomId() != roomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+
+        LocalDateTime heartbeatAt = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        if (!seatAssignmentRepository.updateHeartbeat(roomId, userId, heartbeatAt)) {
+            throw new IllegalStateException("heartbeatを更新する座席割り当てが見つかりません");
+        }
+    }
+
     private SeatAssignment validateExistingAssignment(
             long requestedRoomId,
             SeatAssignment existingAssignment) {

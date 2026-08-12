@@ -108,6 +108,46 @@ public class SeatAssignmentRepository {
                 seatId) == 1;
     }
 
+    public boolean updateHeartbeat(long roomId, long userId, LocalDateTime heartbeatAt) {
+        return jdbcTemplate.update(
+                """
+                UPDATE SEAT_ASSIGNMENTS
+                SET last_heartbeat_at = ?
+                WHERE user_id = ?
+                  AND seat_id IN (SELECT seat_id FROM SEATS WHERE room_id = ?)
+                """,
+                toTimestamp(heartbeatAt),
+                userId,
+                roomId) == 1;
+    }
+
+    public List<ExpiredSeatAssignment> findExpiredAssignments(LocalDateTime cutoffTime) {
+        return jdbcTemplate.query(
+                """
+                SELECT sa.seat_id, s.room_id, sa.last_heartbeat_at
+                FROM SEAT_ASSIGNMENTS sa
+                JOIN SEATS s ON s.seat_id = sa.seat_id
+                WHERE sa.last_heartbeat_at <= ?
+                ORDER BY s.room_id, sa.seat_id
+                """,
+                (resultSet, rowNumber) -> new ExpiredSeatAssignment(
+                        resultSet.getLong("seat_id"),
+                        resultSet.getLong("room_id"),
+                        toLocalDateTime(resultSet.getTimestamp("last_heartbeat_at"))),
+                toTimestamp(cutoffTime));
+    }
+
+    public boolean deleteIfHeartbeatExpired(long seatId, LocalDateTime cutoffTime) {
+        return jdbcTemplate.update(
+                """
+                DELETE FROM SEAT_ASSIGNMENTS
+                WHERE seat_id = ?
+                  AND last_heartbeat_at <= ?
+                """,
+                seatId,
+                toTimestamp(cutoffTime)) == 1;
+    }
+
     private Optional<SeatAssignment> findOne(String sql, long parameter) {
         return jdbcTemplate.query(sql, SEAT_ASSIGNMENT_ROW_MAPPER, parameter)
                 .stream().findFirst();

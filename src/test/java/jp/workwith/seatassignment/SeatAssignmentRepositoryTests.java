@@ -94,6 +94,37 @@ class SeatAssignmentRepositoryTests {
         }
     }
 
+    @Test
+    void findsOnlyHeartbeatsAtOrBeforeTheTimeoutBoundaryAndDeletesConditionally() {
+        TestData data = createTestData();
+        LocalDateTime cutoff = LocalDateTime.of(2026, 8, 12, 18, 32);
+        SeatAssignment expiredWorking = new SeatAssignment(
+                data.seats().get(0).getSeatId(), data.users().get(0).getUserId(),
+                "working", null, cutoff.minusMinutes(10), cutoff);
+        SeatAssignment activeBreak = new SeatAssignment(
+                data.seats().get(1).getSeatId(), data.users().get(1).getUserId(),
+                "break", null, cutoff.minusMinutes(10), cutoff.plusSeconds(1));
+
+        try {
+            seatAssignmentRepository.create(expiredWorking);
+            seatAssignmentRepository.create(activeBreak);
+
+            assertThat(seatAssignmentRepository.findExpiredAssignments(cutoff))
+                    .extracting(ExpiredSeatAssignment::seatId)
+                    .contains(expiredWorking.getSeatId())
+                    .doesNotContain(activeBreak.getSeatId());
+            assertThat(seatAssignmentRepository.deleteIfHeartbeatExpired(
+                    activeBreak.getSeatId(), cutoff)).isFalse();
+            assertThat(seatAssignmentRepository.deleteIfHeartbeatExpired(
+                    expiredWorking.getSeatId(), cutoff)).isTrue();
+            assertThat(seatAssignmentRepository.findBySeatId(activeBreak.getSeatId()))
+                    .isPresent();
+            assertThat(seatRepository.findById(expiredWorking.getSeatId())).isPresent();
+        } finally {
+            cleanup(data);
+        }
+    }
+
     private TestData createTestData() {
         String suffix = UUID.randomUUID().toString().replace("-", "");
         User firstUser = userRepository.create(new User(null, "assignment_a_" + suffix, "password", null));
