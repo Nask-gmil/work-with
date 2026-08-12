@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -17,9 +20,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
+import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
 import jp.workwith.seatassignment.SeatAssignment;
@@ -37,6 +42,7 @@ class RoomJoinApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository seatAssignmentRepository;
     @Autowired private UserRepository userRepository;
+    @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
 
     @Test
     void joinsPublicAndPrivateRoomsAndRejectsUnauthorizedInvalidAndConflictingJoins()
@@ -59,6 +65,7 @@ class RoomJoinApiTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.roomId").value(publicRoom.getRoomId()))
                     .andExpect(jsonPath("$.roomType").value("public"));
+            verify(realtimeNotifier).notifyParticipantsChanged(publicRoom.getRoomId());
             SeatAssignment publicAssignment = seatAssignmentRepository
                     .findByUserId(users.get(1).getUserId()).orElseThrow();
             assertThat(seatRepository.findById(publicAssignment.getSeatId()).orElseThrow()
@@ -78,6 +85,8 @@ class RoomJoinApiTests {
                     .andExpect(jsonPath("$.roomId").value(privateRoom.getRoomId()))
                     .andExpect(jsonPath("$.roomType").value("private"));
             assertThat(seatAssignmentRepository.findByUserId(users.get(2).getUserId())).isPresent();
+
+            clearInvocations(realtimeNotifier);
 
             // public用APIへprivateのroomIdを渡しても参加できません。
             mockMvc.perform(post("/api/rooms/{roomId}/join", privateRoom.getRoomId())
@@ -109,6 +118,7 @@ class RoomJoinApiTests {
 
             mockMvc.perform(post("/api/rooms/{roomId}/join", publicRoom.getRoomId()))
                     .andExpect(status().isUnauthorized());
+            verify(realtimeNotifier, never()).notifyParticipantsChanged(org.mockito.ArgumentMatchers.anyLong());
             mockMvc.perform(post("/api/rooms/private/join")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"roomCode\":\"" + privateRoom.getRoomCode() + "\"}"))

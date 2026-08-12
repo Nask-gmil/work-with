@@ -70,6 +70,7 @@ let roomEnteredAt = null;
 let currentParticipants = [];
 let selectedChatTarget = "all";
 let selectedRoomTheme = null;
+let roomStompClient = null;
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
@@ -306,6 +307,62 @@ async function loadRoomParticipants(roomId) {
       y: seat.posY
     }];
   });
+}
+
+/** 現在の部屋の参加者をREST APIから再取得して描画します。 */
+async function refreshRoomParticipants(roomId) {
+  if (!currentRoomInfo || currentRoomInfo.roomId !== roomId) return;
+  const participants = await loadRoomParticipants(roomId);
+  if (!currentRoomInfo || currentRoomInfo.roomId !== roomId) return;
+  currentParticipants = participants;
+  renderWorkspace(currentRoomInfo, currentParticipants);
+}
+
+/** SPAで残った購読と接続を終了します。座席の退席処理は行いません。 */
+function disconnectRoomWebSocket() {
+  if (!roomStompClient) return;
+  const client = roomStompClient;
+  roomStompClient = null;
+  client.deactivate().catch(function (error) {
+    console.error("WebSocketの切断に失敗しました", error);
+  });
+}
+
+/** 指定した部屋だけを購読し、変更通知時にはREST APIを正として再取得します。 */
+function connectRoomWebSocket(roomId) {
+  disconnectRoomWebSocket();
+  if (!window.StompJs?.Client) {
+    console.error("STOMPクライアントを読み込めなかったため、リアルタイム更新を開始できません");
+    return;
+  }
+
+  const socketProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const client = new window.StompJs.Client({
+    brokerURL: `${socketProtocol}//${window.location.host}/ws`,
+    reconnectDelay: 0,
+    onConnect: function () {
+      if (roomStompClient !== client || currentRoomInfo?.roomId !== roomId) return;
+      client.subscribe(`/topic/room/${roomId}`, function (message) {
+        try {
+          const event = JSON.parse(message.body);
+          if (event.type !== "participants-changed" || event.roomId !== roomId) return;
+          refreshRoomParticipants(roomId).catch(function (error) {
+            console.error("参加者一覧の再取得に失敗しました", error);
+          });
+        } catch (error) {
+          console.error("WebSocket通知の解析に失敗しました", error);
+        }
+      });
+    },
+    onStompError: function (frame) {
+      console.error("WebSocketのSTOMPエラー", frame.headers.message);
+    },
+    onWebSocketError: function (error) {
+      console.error("WebSocket接続に失敗しました", error);
+    }
+  });
+  roomStompClient = client;
+  client.activate();
 }
 
 function formatElapsedTime(startedAt) {
@@ -574,6 +631,7 @@ function openAvatarModal() {
 /** URLに対応する部屋を初期表示します。 */
 async function initializeRoom(queryString) {
   currentRoomInfo = getRoomInfo(queryString);
+  connectRoomWebSocket(currentRoomInfo.roomId);
   myStatus = "working";
   roomEnteredAt = Date.now();
   loadMyWorkspaceState();
@@ -621,6 +679,7 @@ leaveRoomButton.addEventListener("click", async function () {
     }
 
     clearCurrentPrivateRoom();
+    disconnectRoomWebSocket();
     currentRoomInfo = null;
     currentParticipants = [];
     showView("lobby");
@@ -690,7 +749,11 @@ document.addEventListener("avatarupdated", function () {
 });
 
 document.addEventListener("viewchange", function (event) {
-  if (event.detail.view === "room") initializeRoom(event.detail.query);
+  if (event.detail.view === "room") {
+    initializeRoom(event.detail.query);
+  } else {
+    disconnectRoomWebSocket();
+  }
 });
 
 // main.html#room?...を直接開いた場合にも部屋情報を表示します。
