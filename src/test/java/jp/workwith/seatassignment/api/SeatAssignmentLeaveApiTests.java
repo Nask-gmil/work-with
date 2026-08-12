@@ -4,9 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,11 +16,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
-import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
 import jp.workwith.seatassignment.SeatAssignment;
@@ -41,7 +36,6 @@ class SeatAssignmentLeaveApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository seatAssignmentRepository;
     @Autowired private UserRepository userRepository;
-    @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
 
     @Test
     void leavesAsTheSessionUserAndCanThenJoinAnotherRoom() throws Exception {
@@ -64,7 +58,6 @@ class SeatAssignmentLeaveApiTests {
                     secondRoom.getRoomId()).session(session))
                     .andExpect(status().isConflict());
             assertThat(seatAssignmentRepository.findByUserId(user.getUserId())).isPresent();
-            verify(realtimeNotifier, never()).notifyParticipantsChanged(secondRoom.getRoomId());
 
             // 本文のuserIdは無視され、HttpSessionの本人だけが退席します。
             mockMvc.perform(delete("/api/rooms/{roomId}/seat-assignments/me",
@@ -73,16 +66,13 @@ class SeatAssignmentLeaveApiTests {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"userId\":" + otherUser.getUserId() + "}"))
                     .andExpect(status().isNoContent());
-            verify(realtimeNotifier).notifyParticipantsChanged(firstRoom.getRoomId());
             assertThat(seatAssignmentRepository.findByUserId(user.getUserId())).isEmpty();
             assertThat(seatAssignmentRepository.findByUserId(otherUser.getUserId())).isPresent();
             assertThat(seatRepository.findById(userAssignment.getSeatId())).isPresent();
 
-            clearInvocations(realtimeNotifier);
             mockMvc.perform(delete("/api/rooms/{roomId}/seat-assignments/me",
                     firstRoom.getRoomId()).session(session))
                     .andExpect(status().isNoContent());
-            verify(realtimeNotifier, never()).notifyParticipantsChanged(firstRoom.getRoomId());
 
             mockMvc.perform(post("/api/rooms/{roomId}/join", secondRoom.getRoomId())
                     .session(session))

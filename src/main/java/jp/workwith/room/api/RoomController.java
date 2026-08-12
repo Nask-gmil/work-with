@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
-import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.AlreadyAssignedToAnotherRoomException;
 import jp.workwith.seatassignment.RoomFullException;
 import jp.workwith.user.UserNotFoundException;
@@ -30,11 +29,9 @@ import jp.workwith.user.api.ApiErrorResponse;
 public class RoomController {
 
     private final RoomService roomService;
-    private final RoomRealtimeNotifier realtimeNotifier;
 
-    public RoomController(RoomService roomService, RoomRealtimeNotifier realtimeNotifier) {
+    public RoomController(RoomService roomService) {
         this.roomService = roomService;
-        this.realtimeNotifier = realtimeNotifier;
     }
 
     /** ログイン中の本人をcreatedByとして、private部屋を作成します。 */
@@ -116,7 +113,6 @@ public class RoomController {
             HttpServletRequest request) {
         try {
             Room room = roomService.joinPublicRoom(roomId, getLoginUserId(request));
-            realtimeNotifier.notifyParticipantsChanged(room.getRoomId());
             return ResponseEntity.ok(RoomResponse.from(room));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -137,7 +133,6 @@ public class RoomController {
         try {
             Room room = roomService.joinPrivateRoom(
                     requestBody.getRoomCode(), getLoginUserId(request));
-            realtimeNotifier.notifyParticipantsChanged(room.getRoomId());
             return ResponseEntity.ok(RoomResponse.from(room));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

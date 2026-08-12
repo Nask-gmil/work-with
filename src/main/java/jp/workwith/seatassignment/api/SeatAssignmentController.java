@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
-import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.SeatAssignmentService;
 import jp.workwith.seatassignment.SeatAssignmentNotFoundException;
 import jp.workwith.seatassignment.SeatAssignmentRoomMismatchException;
@@ -31,15 +30,12 @@ public class SeatAssignmentController {
 
     private final SeatAssignmentService seatAssignmentService;
     private final RoomService roomService;
-    private final RoomRealtimeNotifier realtimeNotifier;
 
     public SeatAssignmentController(
             SeatAssignmentService seatAssignmentService,
-            RoomService roomService,
-            RoomRealtimeNotifier realtimeNotifier) {
+            RoomService roomService) {
         this.seatAssignmentService = seatAssignmentService;
         this.roomService = roomService;
-        this.realtimeNotifier = realtimeNotifier;
     }
 
     @GetMapping
@@ -68,10 +64,7 @@ public class SeatAssignmentController {
         try {
             long userId = ((Number) request.getSession(false)
                     .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
-            boolean left = seatAssignmentService.leaveRoom(roomId, userId);
-            if (left) {
-                realtimeNotifier.notifyParticipantsChanged(roomId);
-            }
+            seatAssignmentService.leaveRoom(roomId, userId);
             return ResponseEntity.noContent().build();
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)

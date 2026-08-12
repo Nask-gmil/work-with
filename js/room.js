@@ -71,6 +71,7 @@ let currentParticipants = [];
 let selectedChatTarget = "all";
 let selectedRoomTheme = null;
 let roomStompClient = null;
+let roomSubscription = null;
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
@@ -309,17 +310,16 @@ async function loadRoomParticipants(roomId) {
   });
 }
 
-/** 現在の部屋の参加者をREST APIから再取得して描画します。 */
-async function refreshRoomParticipants(roomId) {
-  if (!currentRoomInfo || currentRoomInfo.roomId !== roomId) return;
-  const participants = await loadRoomParticipants(roomId);
-  if (!currentRoomInfo || currentRoomInfo.roomId !== roomId) return;
-  currentParticipants = participants;
-  renderWorkspace(currentRoomInfo, currentParticipants);
-}
-
 /** SPAで残った購読と接続を終了します。座席の退席処理は行いません。 */
 function disconnectRoomWebSocket() {
+  if (roomSubscription) {
+    try {
+      roomSubscription.unsubscribe();
+    } catch (error) {
+      console.error("WebSocketの購読解除に失敗しました", error);
+    }
+    roomSubscription = null;
+  }
   if (!roomStompClient) return;
   const client = roomStompClient;
   roomStompClient = null;
@@ -328,9 +328,14 @@ function disconnectRoomWebSocket() {
   });
 }
 
-/** 指定した部屋だけを購読し、変更通知時にはREST APIを正として再取得します。 */
+/** 指定した部屋だけのSTOMP topicを購読します。 */
 function connectRoomWebSocket(roomId) {
   disconnectRoomWebSocket();
+  const normalizedRoomId = Number(roomId);
+  if (!Number.isInteger(normalizedRoomId) || normalizedRoomId <= 0) {
+    console.error("roomIdが不正なためWebSocketへ接続しません", roomId);
+    return;
+  }
   if (!window.StompJs?.Client) {
     console.error("STOMPクライアントを読み込めなかったため、リアルタイム更新を開始できません");
     return;
@@ -341,18 +346,14 @@ function connectRoomWebSocket(roomId) {
     brokerURL: `${socketProtocol}//${window.location.host}/ws`,
     reconnectDelay: 0,
     onConnect: function () {
-      if (roomStompClient !== client || currentRoomInfo?.roomId !== roomId) return;
-      client.subscribe(`/topic/room/${roomId}`, function (message) {
-        try {
-          const event = JSON.parse(message.body);
-          if (event.type !== "participants-changed" || event.roomId !== roomId) return;
-          refreshRoomParticipants(roomId).catch(function (error) {
-            console.error("参加者一覧の再取得に失敗しました", error);
-          });
-        } catch (error) {
-          console.error("WebSocket通知の解析に失敗しました", error);
-        }
+      if (roomStompClient !== client
+          || Number(currentRoomInfo?.roomId) !== normalizedRoomId) return;
+      console.log("WebSocket connected");
+      const destination = `/topic/room/${normalizedRoomId}`;
+      roomSubscription = client.subscribe(destination, function (message) {
+        console.log("Room WebSocket message:", message.body);
       });
+      console.log(`Subscribed to ${destination}`);
     },
     onStompError: function (frame) {
       console.error("WebSocketのSTOMPエラー", frame.headers.message);
