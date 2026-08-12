@@ -52,6 +52,8 @@ class SeatAssignmentApiTests {
         Seat otherSeat = seatRepository.findByRoomId(otherRoom.getRoomId()).getFirst();
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(UserSession.LOGIN_USER_ID, user.getUserId());
+        MockHttpSession otherSession = new MockHttpSession();
+        otherSession.setAttribute(UserSession.LOGIN_USER_ID, otherUser.getUserId());
 
         try {
             mockMvc.perform(get("/api/rooms/{roomId}/seat-assignments", room.getRoomId())
@@ -80,6 +82,11 @@ class SeatAssignmentApiTests {
                     .andExpect(jsonPath("$[0].startedAt").value("2026-08-12T14:30:00"))
                     .andExpect(jsonPath("$[0].lastHeartbeatAt").value("2026-08-12T14:31:00"))
                     .andExpect(jsonPath("$[0].password").doesNotExist());
+
+            mockMvc.perform(get("/api/rooms/{roomId}/seat-assignments", room.getRoomId())
+                    .session(otherSession))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$[0]").doesNotExist());
 
             mockMvc.perform(get("/api/rooms/{roomId}/seat-assignments", Long.MAX_VALUE)
                     .session(session))

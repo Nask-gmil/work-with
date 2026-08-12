@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.room.RoomNotFoundException;
+import jp.workwith.room.PrivateRoomAccessDeniedException;
 import jp.workwith.room.RoomService;
 import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.SeatAssignmentService;
@@ -44,14 +45,20 @@ public class SeatAssignmentController {
     }
 
     @GetMapping
-    public ResponseEntity<?> findByRoomId(@PathVariable long roomId) {
+    public ResponseEntity<?> findByRoomId(
+            @PathVariable long roomId, HttpServletRequest request) {
         try {
-            roomService.findById(roomId);
+            long userId = ((Number) request.getSession(false)
+                    .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            roomService.findAccessibleRoom(roomId, userId);
             List<SeatAssignmentResponse> response =
                     seatAssignmentService.findParticipantsByRoomId(roomId).stream()
                             .map(SeatAssignmentResponse::from)
                             .toList();
             return ResponseEntity.ok(response);
+        } catch (PrivateRoomAccessDeniedException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(exception.getMessage()));

@@ -90,6 +90,18 @@ input {
   gap: 18px;
 }
 
+.public-room-error {
+  margin: 0;
+}
+
+.public-room-error:not(:empty) {
+  margin-bottom: 12px;
+}
+
+.public-room-error:empty {
+  display: none;
+}
+
 .room-card {
   position: relative;
   min-height: 268px;
@@ -128,29 +140,27 @@ input {
   font-size: 25px;
 }
 
+.room-icon svg {
+  width: 27px;
+  height: 27px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .focus-icon {
   background-color: rgb(102 187 120 / 14%);
   color: var(--green-accent);
 }
 
 .casual-icon {
-  position: relative;
   background-color: rgb(50 145 255 / 14%);
   color: var(--blue-accent);
 }
 
 /* 円の一部を伸ばし、簡単な吹き出し風アイコンにしています。 */
-.casual-icon::after {
-  content: "";
-  position: absolute;
-  right: 7px;
-  bottom: 6px;
-  width: 10px;
-  height: 10px;
-  background-color: currentColor;
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
-}
-
 .night-icon {
   background-color: rgb(203 189 131 / 13%);
   color: #d5c886;

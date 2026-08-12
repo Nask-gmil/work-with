@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
 import jp.workwith.seat.SeatRepository;
+import jp.workwith.seat.Seat;
+import jp.workwith.seatassignment.SeatAssignment;
 import jp.workwith.seatassignment.SeatAssignmentRepository;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
@@ -141,6 +144,14 @@ class RoomApiTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.roomId").value(namedRoomId));
 
+            mockMvc.perform(get("/api/rooms/{roomId}", namedRoomId).session(secondSession))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.roomCode").doesNotExist());
+            mockMvc.perform(get("/api/rooms/code/{roomCode}", namedRoomCode)
+                    .session(secondSession))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.roomCode").doesNotExist());
+
             mockMvc.perform(get("/api/rooms/mine").session(session))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[?(@.roomId == " + namedRoomId + ")]").exists())
@@ -238,6 +249,40 @@ class RoomApiTests {
             roomRepository.deleteById(publicRoom.getRoomId());
             userRepository.deleteById(creator.getUserId());
             userRepository.deleteById(otherUser.getUserId());
+        }
+    }
+
+    @Test
+    void privateRoomParticipantCanReadDetailsButUnrelatedUserCannot() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "");
+        User creator = userService.register("private_owner_" + suffix, "private-password");
+        User participant = userService.register("private_member_" + suffix, "private-password");
+        User unrelated = userService.register("private_other_" + suffix, "private-password");
+        Room room = roomRepository.create(new Room(
+                null, "Z" + suffix.substring(0, 5).toUpperCase(), "private",
+                "Protected room", "focus", null, 2, creator.getUserId()));
+        seatRepository.create(new Seat(null, room.getRoomId(), 1, 26.0, 31.6));
+        Seat seat = seatRepository.findByRoomId(room.getRoomId()).getFirst();
+        LocalDateTime now = LocalDateTime.now();
+        seatAssignmentRepository.create(new SeatAssignment(
+                seat.getSeatId(), participant.getUserId(), "working", null, now, now));
+
+        try {
+            mockMvc.perform(get("/api/rooms/{roomId}", room.getRoomId())
+                    .session(loggedInSession(participant)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.roomCode").value(room.getRoomCode()));
+            mockMvc.perform(get("/api/rooms/{roomId}", room.getRoomId())
+                    .session(loggedInSession(unrelated)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.roomCode").doesNotExist());
+        } finally {
+            seatAssignmentRepository.deleteBySeatId(seat.getSeatId());
+            seatRepository.deleteByRoomId(room.getRoomId());
+            roomRepository.deleteById(room.getRoomId());
+            userRepository.deleteById(creator.getUserId());
+            userRepository.deleteById(participant.getUserId());
+            userRepository.deleteById(unrelated.getUserId());
         }
     }
 

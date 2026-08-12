@@ -44,6 +44,9 @@ class SeatApiTests {
         User user = userService.register(
                 "seat_api_" + UUID.randomUUID().toString().replace("-", ""),
                 "seat-api-password");
+        User unrelatedUser = userService.register(
+                "seat_api_other_" + UUID.randomUUID().toString().replace("-", ""),
+                "seat-api-password");
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(UserSession.LOGIN_USER_ID, user.getUserId());
         Long roomId = null;
@@ -68,6 +71,12 @@ class SeatApiTests {
                     .andExpect(jsonPath("$[0].posX").value(26.0))
                     .andExpect(jsonPath("$[9].seatNumber").value(10))
                     .andExpect(jsonPath("$[9].posY").value(69.0));
+            MockHttpSession unrelatedSession = new MockHttpSession();
+            unrelatedSession.setAttribute(UserSession.LOGIN_USER_ID, unrelatedUser.getUserId());
+            mockMvc.perform(get("/api/rooms/{roomId}/seats", roomId)
+                    .session(unrelatedSession))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$").isMap());
             mockMvc.perform(get("/api/rooms/{roomId}/seats", Long.MAX_VALUE).session(session))
                     .andExpect(status().isNotFound());
             mockMvc.perform(get("/api/rooms/{roomId}/seats", roomId))
@@ -80,6 +89,7 @@ class SeatApiTests {
                 roomRepository.deleteById(roomId);
             }
             userRepository.deleteById(user.getUserId());
+            userRepository.deleteById(unrelatedUser.getUserId());
         }
     }
 }

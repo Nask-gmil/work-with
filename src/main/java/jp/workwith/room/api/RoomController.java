@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomNotFoundException;
+import jp.workwith.room.PrivateRoomAccessDeniedException;
 import jp.workwith.room.RoomService;
 import jp.workwith.room.RoomThemeForbiddenException;
 import jp.workwith.room.ThemeUpdateResult;
@@ -118,10 +119,15 @@ public class RoomController {
 
     /** ユーザー向け参加コードからprivate部屋を取得します。 */
     @GetMapping("/code/{roomCode}")
-    public ResponseEntity<?> findByRoomCode(@PathVariable String roomCode) {
+    public ResponseEntity<?> findByRoomCode(
+            @PathVariable String roomCode, HttpServletRequest request) {
         try {
             return ResponseEntity.ok(RoomResponse.from(
-                    roomService.findPrivateRoomByCode(roomCode)));
+                    roomService.findAccessiblePrivateRoomByCode(
+                            roomCode, getLoginUserId(request))));
+        } catch (PrivateRoomAccessDeniedException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(exception.getMessage()));
@@ -131,9 +137,14 @@ public class RoomController {
     }
 
     @GetMapping("/{roomId}")
-    public ResponseEntity<?> findById(@PathVariable long roomId) {
+    public ResponseEntity<?> findById(
+            @PathVariable long roomId, HttpServletRequest request) {
         try {
-            return ResponseEntity.ok(RoomResponse.from(roomService.findById(roomId)));
+            return ResponseEntity.ok(RoomResponse.from(
+                    roomService.findAccessibleRoom(roomId, getLoginUserId(request))));
+        } catch (PrivateRoomAccessDeniedException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(exception.getMessage()));

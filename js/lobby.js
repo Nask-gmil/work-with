@@ -1,6 +1,7 @@
 "use strict";
 
 const roomButtons = document.querySelectorAll(".enter-button");
+const publicRoomCards = document.querySelectorAll(".room-card[data-room-theme]");
 const createRoomButton = document.getElementById("create-room-button");
 const joinRoomForm = document.getElementById("join-room-form");
 const roomIdInput = document.getElementById("room-id");
@@ -136,6 +137,43 @@ async function loadPublicRooms() {
   if (!response.ok) throw new Error("パブリック部屋を取得できませんでした");
 
   const rooms = await response.json();
+  const assignmentCounts = new Map();
+  await Promise.all(rooms.map(async function (room) {
+    const assignmentsResponse = await fetch(
+      `/api/rooms/${encodeURIComponent(room.roomId)}/seat-assignments`,
+      { credentials: "same-origin" }
+    );
+    if (!assignmentsResponse.ok) {
+      throw new Error("パブリック部屋の入室者数を取得できませんでした");
+    }
+    const assignments = await assignmentsResponse.json();
+    assignmentCounts.set(Number(room.roomId), assignments.length);
+  }));
+
+  publicRoomCards.forEach(function (card) {
+    const themeRooms = rooms.filter(function (room) {
+      return room.theme === card.dataset.roomTheme;
+    });
+    const primaryRoom = themeRooms[0];
+    const participantCount = themeRooms.reduce(function (total, room) {
+      return total + (assignmentCounts.get(Number(room.roomId)) || 0);
+    }, 0);
+    const title = card.querySelector("[data-room-title]");
+    const count = card.querySelector("[data-participant-count]");
+    const notice = card.querySelector(".room-notice");
+
+    if (title && primaryRoom) {
+      title.textContent = primaryRoom.roomName
+        + (themeRooms.length > 1 ? ` <1/${themeRooms.length}>` : "");
+    }
+    if (count) count.textContent = `入室者 ${participantCount}人`;
+    if (notice) {
+      const primaryCount = primaryRoom
+        ? (assignmentCounts.get(Number(primaryRoom.roomId)) || 0) : 0;
+      notice.hidden = !primaryRoom || primaryCount < primaryRoom.maxSeats;
+    }
+  });
+
   roomButtons.forEach(function (button) {
     const room = rooms.find(function (candidate) {
       return candidate.theme === button.dataset.theme;

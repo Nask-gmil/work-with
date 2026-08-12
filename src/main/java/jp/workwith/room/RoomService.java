@@ -97,6 +97,18 @@ public class RoomService {
                 .orElseThrow(RoomNotFoundException::new);
     }
 
+    public Room findAccessibleRoom(long roomId, long userId) {
+        Room room = findById(roomId);
+        if ("public".equals(room.getRoomType())
+                || (room.getCreatedBy() != null && room.getCreatedBy() == userId)
+                || seatAssignmentService.findAssignedRoomId(userId)
+                        .filter(assignedRoomId -> assignedRoomId == roomId)
+                        .isPresent()) {
+            return room;
+        }
+        throw new PrivateRoomAccessDeniedException();
+    }
+
     public List<Room> findPublicRooms() {
         return roomRepository.findPublicRooms();
     }
@@ -125,6 +137,11 @@ public class RoomService {
         return roomRepository.findByRoomCode(normalizedCode)
                 .filter(room -> "private".equals(room.getRoomType()))
                 .orElseThrow(RoomNotFoundException::new);
+    }
+
+    public Room findAccessiblePrivateRoomByCode(String roomCode, long userId) {
+        Room room = findPrivateRoomByCode(roomCode);
+        return findAccessibleRoom(room.getRoomId(), userId);
     }
 
     @Transactional

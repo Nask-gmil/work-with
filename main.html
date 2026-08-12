@@ -127,33 +127,41 @@
       </div>
     </header>
 
-    <!-- パブリック部屋の情報は、現段階では固定のダミーデータです。 -->
+    <p id="public-room-error" class="error-message public-room-error" aria-live="polite"></p>
     <section class="public-rooms" aria-label="パブリック部屋">
-      <p id="public-room-error" class="error-message" aria-live="polite"></p>
-      <article class="room-card">
-        <div class="room-icon focus-icon" aria-hidden="true">●</div>
+      <article class="room-card" data-room-theme="focus">
+        <div class="room-icon focus-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path>
+            <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path>
+          </svg>
+        </div>
         <div class="room-details">
-          <h2>静かに集中室</h2>
-          <p>入室者 10人</p>
+          <h2 data-room-title>静かに集中室</h2>
+          <p data-participant-count>入室者 0人</p>
         </div>
         <button type="button" class="enter-button" data-theme="focus">入室する</button>
       </article>
 
-      <article class="room-card featured-room">
-        <p class="room-notice">満席・新しい部屋へ案内</p>
-        <div class="room-icon casual-icon" aria-hidden="true">●</div>
+      <article class="room-card" data-room-theme="casual">
+        <p class="room-notice" hidden>満席・新しい部屋へ案内</p>
+        <div class="room-icon casual-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M21 11.5a8 8 0 0 1-8 8H7l-4 2 1.4-4.2A8 8 0 1 1 21 11.5z"></path>
+          </svg>
+        </div>
         <div class="room-details">
-          <h2>雑談OK部屋 &lt;1/2&gt;</h2>
-          <p>入室者 10人</p>
+          <h2 data-room-title>雑談OK部屋</h2>
+          <p data-participant-count>入室者 0人</p>
         </div>
         <button type="button" class="enter-button" data-theme="casual">入室する</button>
       </article>
 
-      <article class="room-card">
+      <article class="room-card" data-room-theme="night">
         <div class="room-icon night-icon" aria-hidden="true">☾</div>
         <div class="room-details">
-          <h2>深夜勢の部屋</h2>
-          <p>入室者 10人</p>
+          <h2 data-room-title>深夜勢の部屋</h2>
+          <p data-participant-count>入室者 0人</p>
         </div>
         <button type="button" class="enter-button" data-theme="night">入室する</button>
       </article>
