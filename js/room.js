@@ -72,6 +72,9 @@ let selectedChatTarget = "all";
 let selectedRoomTheme = null;
 let roomStompClient = null;
 let roomSubscription = null;
+let roomParticipantsRefreshInProgress = false;
+let roomParticipantsRefreshRequested = false;
+let roomParticipantsRefreshRoomId = null;
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
@@ -310,6 +313,45 @@ async function loadRoomParticipants(roomId) {
   });
 }
 
+/** 通知された部屋の参加者をRESTから再取得し、既存の描画処理へ反映します。 */
+async function refreshRoomParticipants(roomId) {
+  roomParticipantsRefreshRoomId = roomId;
+  if (roomParticipantsRefreshInProgress) {
+    roomParticipantsRefreshRequested = true;
+    return;
+  }
+
+  roomParticipantsRefreshInProgress = true;
+  try {
+    do {
+      roomParticipantsRefreshRequested = false;
+      const refreshRoomId = roomParticipantsRefreshRoomId;
+      if (Number(currentRoomInfo?.roomId) !== refreshRoomId) continue;
+
+      try {
+        const participants = await loadRoomParticipants(refreshRoomId);
+        if (Number(currentRoomInfo?.roomId) !== refreshRoomId) continue;
+        currentParticipants = participants;
+        renderWorkspace(currentRoomInfo, currentParticipants);
+      } catch (error) {
+        console.error("参加者一覧のリアルタイム更新に失敗しました", error);
+      }
+    } while (roomParticipantsRefreshRequested);
+  } finally {
+    roomParticipantsRefreshInProgress = false;
+  }
+}
+
+/** 現在表示中の部屋に対する参加者変更通知だけを処理します。 */
+function handleRoomRealtimeEvent(event) {
+  const eventRoomId = Number(event?.roomId);
+  if ((event?.type !== "participants-changed" && event?.type !== "status-changed")
+      || !Number.isInteger(eventRoomId)
+      || eventRoomId !== Number(currentRoomInfo?.roomId)) return;
+
+  refreshRoomParticipants(eventRoomId);
+}
+
 /** SPAで残った購読と接続を終了します。座席の退席処理は行いません。 */
 function disconnectRoomWebSocket() {
   if (roomSubscription) {
@@ -351,7 +393,13 @@ function connectRoomWebSocket(roomId) {
       console.log("WebSocket connected");
       const destination = `/topic/room/${normalizedRoomId}`;
       roomSubscription = client.subscribe(destination, function (message) {
-        console.log("Room WebSocket message:", message.body);
+        try {
+          const event = JSON.parse(message.body);
+          console.log("Room realtime event:", event);
+          handleRoomRealtimeEvent(event);
+        } catch (error) {
+          console.error("WebSocket通知の解析に失敗しました", error);
+        }
       });
       console.log(`Subscribed to ${destination}`);
     },
@@ -632,7 +680,6 @@ function openAvatarModal() {
 /** URLに対応する部屋を初期表示します。 */
 async function initializeRoom(queryString) {
   currentRoomInfo = getRoomInfo(queryString);
-  connectRoomWebSocket(currentRoomInfo.roomId);
   myStatus = "working";
   roomEnteredAt = Date.now();
   loadMyWorkspaceState();
@@ -654,6 +701,7 @@ async function initializeRoom(queryString) {
     renderWorkspace(currentRoomInfo, currentParticipants);
     console.error(error);
   }
+  connectRoomWebSocket(currentRoomInfo.roomId);
 }
 
 changeAvatarButton.addEventListener("click", openAvatarModal);

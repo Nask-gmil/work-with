@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
+import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.SeatAssignmentService;
+import jp.workwith.seatassignment.RoomParticipant;
 import jp.workwith.seatassignment.SeatAssignmentNotFoundException;
 import jp.workwith.seatassignment.SeatAssignmentRoomMismatchException;
 import jp.workwith.user.UserSession;
@@ -30,12 +32,15 @@ public class SeatAssignmentController {
 
     private final SeatAssignmentService seatAssignmentService;
     private final RoomService roomService;
+    private final RoomRealtimeNotifier realtimeNotifier;
 
     public SeatAssignmentController(
             SeatAssignmentService seatAssignmentService,
-            RoomService roomService) {
+            RoomService roomService,
+            RoomRealtimeNotifier realtimeNotifier) {
         this.seatAssignmentService = seatAssignmentService;
         this.roomService = roomService;
+        this.realtimeNotifier = realtimeNotifier;
     }
 
     @GetMapping
@@ -64,7 +69,10 @@ public class SeatAssignmentController {
         try {
             long userId = ((Number) request.getSession(false)
                     .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
-            seatAssignmentService.leaveRoom(roomId, userId);
+            boolean left = seatAssignmentService.leaveRoom(roomId, userId);
+            if (left) {
+                realtimeNotifier.notifyParticipantsChanged(roomId);
+            }
             return ResponseEntity.noContent().build();
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -86,8 +94,10 @@ public class SeatAssignmentController {
         try {
             long userId = ((Number) request.getSession(false)
                     .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
-            return ResponseEntity.ok(SeatAssignmentResponse.from(
-                    seatAssignmentService.updateStatus(roomId, userId, requestBody.getStatus())));
+            RoomParticipant participant = seatAssignmentService.updateStatus(
+                    roomId, userId, requestBody.getStatus());
+            realtimeNotifier.notifyStatusChanged(roomId);
+            return ResponseEntity.ok(SeatAssignmentResponse.from(participant));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest()
                     .body(new ApiErrorResponse(exception.getMessage()));

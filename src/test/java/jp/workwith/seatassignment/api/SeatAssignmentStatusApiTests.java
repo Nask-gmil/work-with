@@ -1,6 +1,8 @@
 package jp.workwith.seatassignment.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,9 +18,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
+import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
 import jp.workwith.seatassignment.SeatAssignment;
@@ -36,6 +40,7 @@ class SeatAssignmentStatusApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository assignmentRepository;
     @Autowired private UserRepository userRepository;
+    @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
 
     @Test
     void updatesOnlyTheSessionUsersStatus() throws Exception {
@@ -53,6 +58,7 @@ class SeatAssignmentStatusApiTests {
                     .andExpect(jsonPath("$.avatarType").value("male_a"))
                     .andExpect(jsonPath("$.status").value("break"))
                     .andExpect(jsonPath("$.workContent").value("API test"));
+            verify(realtimeNotifier).notifyStatusChanged(data.room().getRoomId());
 
             SeatAssignment updated = assignmentRepository.findByUserId(
                     data.user().getUserId()).orElseThrow();
@@ -95,6 +101,8 @@ class SeatAssignmentStatusApiTests {
                     .andExpect(status().isConflict());
             assertThat(assignmentRepository.findByUserId(data.user().getUserId()))
                     .get().extracting(SeatAssignment::getStatus).isEqualTo("working");
+            verify(realtimeNotifier, never()).notifyStatusChanged(
+                    org.mockito.ArgumentMatchers.anyLong());
         } finally {
             cleanup(data);
         }
