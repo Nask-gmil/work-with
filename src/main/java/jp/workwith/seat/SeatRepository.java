@@ -65,6 +65,22 @@ public class SeatRepository {
                 roomId);
     }
 
+    /** 割り当てのない座席のうち、座席番号が最も小さい1席を返します。 */
+    public Optional<Seat> findFirstAvailableByRoomId(long roomId) {
+        return jdbcTemplate.query(
+                """
+                SELECT s.seat_id, s.room_id, s.seat_number, s.pos_x, s.pos_y
+                FROM SEATS s
+                LEFT JOIN SEAT_ASSIGNMENTS sa ON sa.seat_id = s.seat_id
+                WHERE s.room_id = ?
+                  AND sa.seat_id IS NULL
+                ORDER BY s.seat_number
+                LIMIT 1
+                """,
+                SEAT_ROW_MAPPER,
+                roomId).stream().findFirst();
+    }
+
     /** テストデータの後片付けなど、部屋の全座席を削除するときに使用します。 */
     public int deleteByRoomId(long roomId) {
         return jdbcTemplate.update("DELETE FROM SEATS WHERE room_id = ?", roomId);
