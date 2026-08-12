@@ -92,6 +92,12 @@ public class RoomRepository {
         return jdbcTemplate.query(sql, ROOM_ROW_MAPPER, "public");
     }
 
+    public List<Room> findPublicRoomsByTheme(String theme) {
+        String sql = "SELECT " + SELECT_COLUMNS
+                + " FROM ROOMS WHERE room_type = ? AND theme = ? ORDER BY room_id";
+        return jdbcTemplate.query(sql, ROOM_ROW_MAPPER, "public", theme);
+    }
+
     public List<Room> findByCreatedBy(long userId) {
         String sql = "SELECT " + SELECT_COLUMNS
                 + " FROM ROOMS WHERE created_by = ? ORDER BY room_id";

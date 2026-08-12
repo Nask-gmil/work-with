@@ -60,6 +60,19 @@ class RoomRealtimeNotifierTests {
     }
 
     @Test
+    void sendsAvatarChangedToTheSpecifiedRoomTopic() {
+        SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
+                SimpMessagingTemplate.class);
+        RoomRealtimeNotifier notifier = new RoomRealtimeNotifier(messagingTemplate);
+
+        notifier.notifyAvatarChanged(9L, 24L);
+
+        verify(messagingTemplate).convertAndSend(
+                "/topic/room/9",
+                new RoomAvatarChangedEvent("avatar-changed", 9L, 24L));
+    }
+
+    @Test
     void sendsChatMessageOnlyToItsRoomTopic() {
         SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
                 SimpMessagingTemplate.class);

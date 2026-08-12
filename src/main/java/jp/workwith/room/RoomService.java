@@ -10,6 +10,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import jp.workwith.seat.SeatService;
+import jp.workwith.seatassignment.AlreadyAssignedToAnotherRoomException;
 import jp.workwith.seatassignment.SeatAssignmentService;
 import jp.workwith.user.User;
 import jp.workwith.user.UserNotFoundException;
@@ -131,14 +132,53 @@ public class RoomService {
     }
 
     @Transactional
-    public Room joinPublicRoom(long roomId, long userId) {
-        Room room = findById(roomId);
-        if (!"public".equals(room.getRoomType())) {
+    public synchronized Room joinPublicRoom(long roomId, long userId) {
+        Room requestedRoom = findById(roomId);
+        if (!"public".equals(requestedRoom.getRoomType())) {
             // private部屋の存在をroomIdだけから確認できる抜け道も作りません。
             throw new RoomNotFoundException();
         }
-        seatAssignmentService.autoAssignSeat(roomId, userId);
-        return room;
+        var assignedRoomId = seatAssignmentService.findAssignedRoomId(userId);
+        if (assignedRoomId.isPresent()) {
+            if (assignedRoomId.get() != roomId) {
+                throw new AlreadyAssignedToAnotherRoomException();
+            }
+            seatAssignmentService.autoAssignSeat(roomId, userId);
+            return requestedRoom;
+        }
+
+        if (seatService.hasAvailableSeat(requestedRoom.getRoomId())) {
+            seatAssignmentService.autoAssignSeat(requestedRoom.getRoomId(), userId);
+            return requestedRoom;
+        }
+
+        List<Room> categoryRooms = roomRepository.findPublicRoomsByTheme(
+                requestedRoom.getTheme());
+        for (Room room : categoryRooms) {
+            if (room.getRoomId().equals(requestedRoom.getRoomId())) continue;
+            if (seatService.hasAvailableSeat(room.getRoomId())) {
+                seatAssignmentService.autoAssignSeat(room.getRoomId(), userId);
+                return room;
+            }
+        }
+
+        String baseName = Map.of(
+                "focus", "静かに集中室",
+                "casual", "雑談OK部屋",
+                "night", "深夜勢の部屋")
+                .getOrDefault(requestedRoom.getTheme(), requestedRoom.getRoomName());
+        Room newRoom = roomRepository.create(new Room(
+                null,
+                null,
+                "public",
+                baseName + " " + (categoryRooms.size() + 1),
+                requestedRoom.getTheme(),
+                requestedRoom.getBackgroundUrl(),
+                requestedRoom.getMaxSeats(),
+                null));
+        seatService.createForRoom(newRoom.getRoomId(), newRoom.getMaxSeats());
+        seatAssignmentService.autoAssignSeat(newRoom.getRoomId(), userId);
+        return newRoom;
     }
 
     @Transactional

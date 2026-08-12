@@ -19,6 +19,8 @@ import jp.workwith.user.User;
 import jp.workwith.user.UserService;
 import jp.workwith.user.UserSession;
 import jp.workwith.user.UserNotFoundException;
+import jp.workwith.realtime.RoomRealtimeNotifier;
+import jp.workwith.seatassignment.SeatAssignmentService;
 
 /** 新規ユーザー登録のHTTPリクエストを受け付けます。 */
 @RestController
@@ -26,9 +28,16 @@ import jp.workwith.user.UserNotFoundException;
 public class UserController {
 
     private final UserService userService;
+    private final SeatAssignmentService seatAssignmentService;
+    private final RoomRealtimeNotifier realtimeNotifier;
 
-    public UserController(UserService userService) {
+    public UserController(
+            UserService userService,
+            SeatAssignmentService seatAssignmentService,
+            RoomRealtimeNotifier realtimeNotifier) {
         this.userService = userService;
+        this.seatAssignmentService = seatAssignmentService;
+        this.realtimeNotifier = realtimeNotifier;
     }
 
     @PostMapping("/register")
@@ -116,6 +125,8 @@ public class UserController {
         try {
             User updatedUser = userService.updateAvatar(
                     userId, requestBody.getAvatarType());
+            seatAssignmentService.findAssignedRoomId(userId)
+                    .ifPresent(roomId -> realtimeNotifier.notifyAvatarChanged(roomId, userId));
             return ResponseEntity.ok(new LoginResponse(
                     updatedUser.getUserId(),
                     updatedUser.getUsername(),

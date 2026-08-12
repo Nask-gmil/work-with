@@ -1,6 +1,8 @@
 package jp.workwith.user.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,7 +17,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import jp.workwith.realtime.RoomRealtimeNotifier;
+import jp.workwith.room.Room;
+import jp.workwith.room.RoomRepository;
+import jp.workwith.seat.Seat;
+import jp.workwith.seat.SeatRepository;
+import jp.workwith.seatassignment.SeatAssignmentRepository;
+import jp.workwith.seatassignment.SeatAssignmentService;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserService;
@@ -33,6 +43,12 @@ class UserAvatarApiTests {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired private RoomRepository roomRepository;
+    @Autowired private SeatRepository seatRepository;
+    @Autowired private SeatAssignmentRepository assignmentRepository;
+    @Autowired private SeatAssignmentService assignmentService;
+    @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
 
     @Test
     void updatesAvatarAndReturnsItFromCurrentUserApi() throws Exception {
@@ -67,6 +83,9 @@ class UserAvatarApiTests {
                     .get()
                     .extracting(User::getAvatarType)
                     .isEqualTo("female_b");
+            verify(realtimeNotifier, never()).notifyAvatarChanged(
+                    org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyLong());
         } finally {
             userRepository.deleteById(user.getUserId());
         }
@@ -94,7 +113,40 @@ class UserAvatarApiTests {
                     .get()
                     .extracting(User::getAvatarType)
                     .isNull();
+            verify(realtimeNotifier, never()).notifyAvatarChanged(
+                    org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyLong());
         } finally {
+            userRepository.deleteById(user.getUserId());
+        }
+    }
+
+    @Test
+    void notifiesOnlyTheRoomWhereTheUpdatedUserIsSeated() throws Exception {
+        User user = createTestUser();
+        Room room = roomRepository.create(new Room(
+                null, null, "public", "Avatar room", "focus", null, 1, null));
+        seatRepository.createAll(java.util.List.of(
+                new Seat(null, room.getRoomId(), 1, 26.0, 31.6)));
+        assignmentService.autoAssignSeat(room.getRoomId(), user.getUserId());
+
+        try {
+            mockMvc.perform(patch("/api/users/me/avatar")
+                    .session(loggedInSession(user))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"avatarType\":\"female_b\",\"userId\":999}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.userId").value(user.getUserId()))
+                    .andExpect(jsonPath("$.avatarType").value("female_b"));
+
+            verify(realtimeNotifier).notifyAvatarChanged(
+                    room.getRoomId(), user.getUserId());
+            assertThat(assignmentRepository.findByUserId(user.getUserId())).isPresent();
+        } finally {
+            seatRepository.findByRoomId(room.getRoomId()).forEach(seat ->
+                    assignmentRepository.deleteBySeatId(seat.getSeatId()));
+            seatRepository.deleteByRoomId(room.getRoomId());
+            roomRepository.deleteById(room.getRoomId());
             userRepository.deleteById(user.getUserId());
         }
     }

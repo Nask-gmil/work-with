@@ -26,4 +26,8 @@ public class SeatService {
         seatRepository.createAll(seats);
         return seatRepository.findByRoomId(roomId);
     }
+
+    public boolean hasAvailableSeat(long roomId) {
+        return seatRepository.findFirstAvailableByRoomId(roomId).isPresent();
+    }
 }

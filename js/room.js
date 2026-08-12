@@ -441,7 +441,8 @@ function handleRoomRealtimeEvent(event) {
   }
   if (event?.type !== "participants-changed"
       && event?.type !== "status-changed"
-      && event?.type !== "work-content-changed") return;
+      && event?.type !== "work-content-changed"
+      && event?.type !== "avatar-changed") return;
 
   refreshRoomParticipants(eventRoomId);
 }

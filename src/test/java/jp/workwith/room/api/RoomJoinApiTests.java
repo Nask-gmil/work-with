@@ -108,8 +108,15 @@ class RoomJoinApiTests {
             createAssignment(seats(fullRoom).getFirst(), users.get(3));
             mockMvc.perform(post("/api/rooms/{roomId}/join", fullRoom.getRoomId())
                     .session(session(users.get(4))))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.message").value("部屋は満席です"));
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.roomType").value("public"))
+                    .andExpect(jsonPath("$.theme").value("casual"));
+            long routedRoomId = seatRepository.findById(seatAssignmentRepository
+                    .findByUserId(users.get(4).getUserId()).orElseThrow().getSeatId())
+                    .orElseThrow().getRoomId();
+            assertThat(routedRoomId).isNotEqualTo(fullRoom.getRoomId());
+            verify(realtimeNotifier).notifyParticipantsChanged(routedRoomId);
+            clearInvocations(realtimeNotifier);
 
             mockMvc.perform(post("/api/rooms/private/join")
                     .session(session(users.get(4)))
@@ -169,6 +176,9 @@ class RoomJoinApiTests {
     }
 
     private void cleanup(List<Room> rooms, List<User> users) {
+        users.forEach(user -> seatAssignmentRepository.findByUserId(user.getUserId())
+                .ifPresent(assignment ->
+                        seatAssignmentRepository.deleteBySeatId(assignment.getSeatId())));
         rooms.forEach(room -> {
             seats(room).forEach(seat -> seatAssignmentRepository.deleteBySeatId(seat.getSeatId()));
             seatRepository.deleteByRoomId(room.getRoomId());

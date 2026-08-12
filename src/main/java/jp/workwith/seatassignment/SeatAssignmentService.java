@@ -39,6 +39,13 @@ public class SeatAssignmentService {
         return seatAssignmentRepository.findParticipantsByRoomId(roomId);
     }
 
+    public Optional<Long> findAssignedRoomId(long userId) {
+        return seatAssignmentRepository.findByUserId(userId)
+                .map(SeatAssignment::getSeatId)
+                .flatMap(seatRepository::findById)
+                .map(Seat::getRoomId);
+    }
+
     /** 指定部屋の座席番号が最も小さい空席へ、ユーザーを自動で割り当てます。 */
     @Transactional
     public SeatAssignment autoAssignSeat(long roomId, long userId) {
