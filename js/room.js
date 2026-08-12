@@ -23,6 +23,8 @@ const chatPanel = document.getElementById("chat-panel");
 const sideUsername = document.getElementById("side-username");
 const sideElapsedTime = document.getElementById("side-elapsed-time");
 const myWorkContentInput = document.getElementById("my-work-content");
+const saveWorkContentButton = document.getElementById("save-work-content-button");
+const workContentError = document.getElementById("work-content-error");
 const privateMemoInput = document.getElementById("private-memo");
 const chatTargetSelect = document.getElementById("chat-target");
 const chatHistoryTitle = document.getElementById("chat-history-title");
@@ -98,7 +100,7 @@ function getWorkspaceUsername() {
 /** ユーザーごとに保存された作業内容と個人メモを復元します。 */
 function loadMyWorkspaceState() {
   const username = getWorkspaceUsername();
-  myWorkContent = localStorage.getItem(`workContent:${username}`) || "";
+  myWorkContent = "";
   privateMemo = localStorage.getItem(`privateMemo:${username}`) || "";
   sideUsername.textContent = username;
   myWorkContentInput.value = myWorkContent;
@@ -106,10 +108,28 @@ function loadMyWorkspaceState() {
 }
 
 /** 他の利用者にも見える作業内容を仮保存します。 */
-function saveWorkContent(workContent) {
-  const username = getWorkspaceUsername();
-  myWorkContent = workContent;
-  localStorage.setItem(`workContent:${username}`, workContent);
+async function saveWorkContent() {
+  if (!currentRoomInfo?.roomId) return;
+  workContentError.textContent = "";
+  saveWorkContentButton.disabled = true;
+  try {
+    const response = await fetch(
+      `/api/rooms/${encodeURIComponent(currentRoomInfo.roomId)}/seat-assignments/me/work-content`,
+      {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workContent: myWorkContentInput.value })
+      }
+    );
+    const participant = await readRoomApi(response, "作業内容を保存できませんでした");
+    myWorkContent = participant.workContent || "";
+    myWorkContentInput.value = myWorkContent;
+  } catch (error) {
+    workContentError.textContent = error.message;
+  } finally {
+    saveWorkContentButton.disabled = false;
+  }
 }
 
 /** 自分だけに表示する個人メモを仮保存します。 */
@@ -419,7 +439,9 @@ function handleRoomRealtimeEvent(event) {
     applyRoomTheme(event.theme);
     return;
   }
-  if (event?.type !== "participants-changed" && event?.type !== "status-changed") return;
+  if (event?.type !== "participants-changed"
+      && event?.type !== "status-changed"
+      && event?.type !== "work-content-changed") return;
 
   refreshRoomParticipants(eventRoomId);
 }
@@ -497,6 +519,11 @@ async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
 
     synchronizeCurrentRoomDetails(room);
     currentParticipants = participants;
+    const myParticipant = participants.find(function (participant) { return participant.isMe; });
+    if (myParticipant) {
+      myWorkContent = myParticipant.memo || "";
+      myWorkContentInput.value = myWorkContent;
+    }
     renderWorkspace(currentRoomInfo, currentParticipants);
     const history = await loadRoomChatHistory(roomId);
     if (roomStompClient !== client
@@ -647,12 +674,12 @@ function formatElapsedTime(startedAt) {
 /** アバターのホバー情報を最前面のUIレイヤーへ表示します。 */
 function showAvatarTooltip(participant) {
   const statusLabel = participant.status === "working" ? "作業中" : "休憩中";
-  const memoLabel = participant.memo || "なし";
+  const memoLabel = participant.memo || "未設定";
   const lines = [
     { text: `${participant.name}さん`, strong: true },
     { text: `状態: ${statusLabel}` },
     { text: `経過: ${participant.elapsedTime}` },
-    { text: `メモ: ${memoLabel}` }
+    { text: `作業内容: ${memoLabel}` }
   ];
 
   workspaceTooltip.replaceChildren();
@@ -1003,7 +1030,11 @@ async function initializeRoom(queryString) {
     const myParticipant = currentParticipants.find(function (participant) {
       return participant.isMe;
     });
-    if (myParticipant) setMyStatus(myParticipant.status);
+    if (myParticipant) {
+      setMyStatus(myParticipant.status);
+      myWorkContent = myParticipant.memo || "";
+      myWorkContentInput.value = myWorkContent;
+    }
     renderWorkspace(currentRoomInfo, currentParticipants);
     mergeRoomChatMessages("all", history);
   } catch (error) {
@@ -1064,9 +1095,13 @@ sideTabs.forEach(function (tab) {
   });
 });
 
-myWorkContentInput.addEventListener("input", function () {
-  saveWorkContent(myWorkContentInput.value);
-  if (currentRoomInfo) renderParticipants(currentParticipants);
+saveWorkContentButton.addEventListener("click", saveWorkContent);
+
+myWorkContentInput.addEventListener("keydown", function (event) {
+  if (event.key === "Enter" && !event.isComposing) {
+    event.preventDefault();
+    saveWorkContent();
+  }
 });
 
 privateMemoInput.addEventListener("input", function () {

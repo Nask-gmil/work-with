@@ -108,6 +108,13 @@ public class SeatAssignmentRepository {
                 seatId) == 1;
     }
 
+    public boolean updateWorkContentBySeatId(long seatId, String workContent) {
+        return jdbcTemplate.update(
+                "UPDATE SEAT_ASSIGNMENTS SET work_content = ? WHERE seat_id = ?",
+                workContent,
+                seatId) == 1;
+    }
+
     public boolean updateHeartbeat(long roomId, long userId, LocalDateTime heartbeatAt) {
         return jdbcTemplate.update(
                 """

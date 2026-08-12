@@ -47,6 +47,19 @@ class RoomRealtimeNotifierTests {
     }
 
     @Test
+    void sendsWorkContentChangedToTheSpecifiedRoomTopic() {
+        SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
+                SimpMessagingTemplate.class);
+        RoomRealtimeNotifier notifier = new RoomRealtimeNotifier(messagingTemplate);
+
+        notifier.notifyWorkContentChanged(8L, 21L);
+
+        verify(messagingTemplate).convertAndSend(
+                "/topic/room/8",
+                new RoomWorkContentChangedEvent("work-content-changed", 8L, 21L));
+    }
+
+    @Test
     void sendsChatMessageOnlyToItsRoomTopic() {
         SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
                 SimpMessagingTemplate.class);

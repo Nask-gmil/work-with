@@ -30,6 +30,12 @@ public class RoomRealtimeNotifier {
                 new RoomThemeChangedEvent("theme-changed", roomId, theme));
     }
 
+    public void notifyWorkContentChanged(long roomId, long userId) {
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomId,
+                new RoomWorkContentChangedEvent("work-content-changed", roomId, userId));
+    }
+
     public void notifyChatMessage(RoomChatMessage message) {
         messagingTemplate.convertAndSend("/topic/room/" + message.roomId(), message);
     }

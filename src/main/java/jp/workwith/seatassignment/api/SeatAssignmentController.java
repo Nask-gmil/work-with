@@ -112,4 +112,31 @@ public class SeatAssignmentController {
                     .body(new ApiErrorResponse("状態の更新に失敗しました"));
         }
     }
+
+    @PatchMapping("/me/work-content")
+    public ResponseEntity<?> updateWorkContent(
+            @PathVariable long roomId,
+            @RequestBody UpdateWorkContentRequest requestBody,
+            HttpServletRequest request) {
+        try {
+            long userId = ((Number) request.getSession(false)
+                    .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            RoomParticipant participant = seatAssignmentService.updateWorkContent(
+                    roomId, userId, requestBody.workContent());
+            realtimeNotifier.notifyWorkContentChanged(roomId, userId);
+            return ResponseEntity.ok(SeatAssignmentResponse.from(participant));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (SeatAssignmentNotFoundException | SeatAssignmentRoomMismatchException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException | IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("作業内容の更新に失敗しました"));
+        }
+    }
 }

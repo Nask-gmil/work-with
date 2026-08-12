@@ -120,6 +120,29 @@ public class SeatAssignmentService {
     }
 
     @Transactional
+    public RoomParticipant updateWorkContent(long roomId, long userId, String workContent) {
+        String normalizedWorkContent = normalizeWorkContent(workContent);
+        roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+
+        SeatAssignment assignment = seatAssignmentRepository.findByUserId(userId)
+                .orElseThrow(SeatAssignmentNotFoundException::new);
+        Seat assignedSeat = seatRepository.findById(assignment.getSeatId())
+                .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
+        if (assignedSeat.getRoomId() != roomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+        if (!seatAssignmentRepository.updateWorkContentBySeatId(
+                assignment.getSeatId(), normalizedWorkContent)) {
+            throw new IllegalStateException("作業内容を更新する座席割り当てが見つかりません");
+        }
+
+        return seatAssignmentRepository.findParticipantsByRoomId(roomId).stream()
+                .filter(participant -> participant.userId() == userId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("更新した座席割り当てが見つかりません"));
+    }
+
+    @Transactional
     public void updateHeartbeat(long roomId, long userId) {
         roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
         SeatAssignment assignment = seatAssignmentRepository.findByUserId(userId)
@@ -146,5 +169,13 @@ public class SeatAssignmentService {
             throw new AlreadyAssignedToAnotherRoomException();
         }
         return existingAssignment;
+    }
+
+    private String normalizeWorkContent(String workContent) {
+        String normalized = workContent == null ? "" : workContent.trim();
+        if (normalized.length() > 100) {
+            throw new IllegalArgumentException("作業内容は100文字以内で入力してください");
+        }
+        return normalized.isEmpty() ? null : normalized;
     }
 }
