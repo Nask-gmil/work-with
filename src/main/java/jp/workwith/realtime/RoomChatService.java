@@ -11,6 +11,7 @@ import jp.workwith.chat.ChatMessage;
 import jp.workwith.chat.ChatMessageRepository;
 import jp.workwith.chat.ChatHistoryMessage;
 import jp.workwith.room.RoomNotFoundException;
+import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
@@ -60,7 +61,7 @@ public class RoomChatService {
             if (targetUserId == userId) {
                 throw new IllegalArgumentException("自分自身へ個別チャットは送信できません");
             }
-            validateSeatedUser(roomId, targetUserId);
+            validatePrivateChatUsers(roomId, userId, targetUserId);
         }
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         LocalDateTime sentAt = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
@@ -76,7 +77,18 @@ public class RoomChatService {
     @Transactional(readOnly = true)
     public List<ChatHistoryMessage> findGlobalHistory(long roomId, long userId) {
         validateSeatedUser(roomId, userId);
+        Room room = roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+        if ("public".equals(room.getRoomType())) {
+            return chatMessageRepository.findLatestGlobalMessagesInPublicTheme(
+                    room.getTheme(), HISTORY_LIMIT);
+        }
         return chatMessageRepository.findLatestGlobalMessages(roomId, HISTORY_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public String findPublicTheme(long roomId) {
+        Room room = roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
+        return "public".equals(room.getRoomType()) ? room.getTheme() : null;
     }
 
     @Transactional(readOnly = true)
@@ -86,9 +98,15 @@ public class RoomChatService {
         if (userId == otherUserId) {
             throw new IllegalArgumentException("自分自身との個別履歴は取得できません");
         }
-        validateSeatedUser(roomId, otherUserId);
-        return chatMessageRepository.findLatestPrivateMessages(
-                roomId, userId, otherUserId, HISTORY_LIMIT);
+        Room senderRoom = roomForSeatedUser(userId);
+        Room targetRoom = roomForSeatedUser(otherUserId);
+        if (targetRoom.getRoomId() == roomId) {
+            return chatMessageRepository.findLatestPrivateMessages(
+                    roomId, userId, otherUserId, HISTORY_LIMIT);
+        }
+        validateSamePublicCategory(senderRoom, targetRoom);
+        return chatMessageRepository.findLatestPrivateMessagesInPublicTheme(
+                senderRoom.getTheme(), userId, otherUserId, HISTORY_LIMIT);
     }
 
     private void validateSeatedUser(long roomId, long userId) {
@@ -98,6 +116,34 @@ public class RoomChatService {
         Seat seat = seatRepository.findById(assignment.getSeatId())
                 .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
         if (seat.getRoomId() != roomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+    }
+
+    private void validatePrivateChatUsers(long senderRoomId, long senderUserId, long targetUserId) {
+        Room senderRoom = roomForSeatedUser(senderUserId);
+        if (senderRoom.getRoomId() != senderRoomId) {
+            throw new SeatAssignmentRoomMismatchException();
+        }
+        Room targetRoom = roomForSeatedUser(targetUserId);
+        if (targetRoom.getRoomId() != senderRoomId) {
+            validateSamePublicCategory(senderRoom, targetRoom);
+        }
+    }
+
+    private Room roomForSeatedUser(long userId) {
+        SeatAssignment assignment = seatAssignmentRepository.findByUserId(userId)
+                .orElseThrow(SeatAssignmentNotFoundException::new);
+        Seat seat = seatRepository.findById(assignment.getSeatId())
+                .orElseThrow(() -> new IllegalStateException("着席中の座席が見つかりません"));
+        return roomRepository.findById(seat.getRoomId())
+                .orElseThrow(SeatAssignmentRoomMismatchException::new);
+    }
+
+    private void validateSamePublicCategory(Room firstRoom, Room secondRoom) {
+        if (!"public".equals(firstRoom.getRoomType())
+                || !"public".equals(secondRoom.getRoomType())
+                || !firstRoom.getTheme().equals(secondRoom.getTheme())) {
             throw new SeatAssignmentRoomMismatchException();
         }
     }

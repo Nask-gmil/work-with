@@ -16,12 +16,14 @@ public class RoomRealtimeNotifier {
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId,
                 new RoomRealtimeEvent("participants-changed", roomId));
+        notifyPresenceChanged(roomId, "participants-changed");
     }
 
     public void notifyStatusChanged(long roomId) {
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId,
                 new RoomRealtimeEvent("status-changed", roomId));
+        notifyPresenceChanged(roomId, "status-changed");
     }
 
     public void notifyThemeChanged(long roomId, String theme) {
@@ -34,16 +36,32 @@ public class RoomRealtimeNotifier {
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId,
                 new RoomWorkContentChangedEvent("work-content-changed", roomId, userId));
+        notifyPresenceChanged(roomId, "work-content-changed");
     }
 
     public void notifyAvatarChanged(long roomId, long userId) {
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId,
                 new RoomAvatarChangedEvent("avatar-changed", roomId, userId));
+        notifyPresenceChanged(roomId, "avatar-changed");
+    }
+
+    private void notifyPresenceChanged(long roomId, String type) {
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomId + "/presence",
+                new RoomRealtimeEvent(type, roomId));
     }
 
     public void notifyChatMessage(RoomChatMessage message) {
         messagingTemplate.convertAndSend("/topic/room/" + message.roomId(), message);
+    }
+
+    public void notifyChatMessage(RoomChatMessage message, String publicTheme) {
+        if (publicTheme == null) {
+            notifyChatMessage(message);
+            return;
+        }
+        messagingTemplate.convertAndSend("/topic/public-chat/" + publicTheme, message);
     }
 
     public void notifyPrivateChatMessage(RoomChatMessage message) {

@@ -2,6 +2,11 @@
 
 const workspaceRoomName = document.getElementById("workspace-room-name");
 const workspaceParticipantCount = document.getElementById("workspace-participant-count");
+const publicRoomViewNavigation = document.getElementById("public-room-view-navigation");
+const previousPublicRoomButton = document.getElementById("previous-public-room");
+const nextPublicRoomButton = document.getElementById("next-public-room");
+const publicRoomViewPosition = document.getElementById("public-room-view-position");
+const returnToJoinedRoomButton = document.getElementById("return-to-joined-room");
 const workspaceScene = document.getElementById("workspace-scene");
 const roomBackgroundLayer = document.getElementById("room-background-layer");
 const upperChairLayer = document.getElementById("upper-chair-layer");
@@ -66,6 +71,9 @@ const roomAvatarImages = {
 };
 
 let currentRoomInfo = null;
+let viewingRoomInfo = null;
+let viewablePublicRooms = [];
+let viewingPresenceSubscription = null;
 let myStatus = "working";
 let myWorkContent = "";
 let privateMemo = "";
@@ -75,6 +83,7 @@ let selectedChatTarget = "all";
 let selectedRoomTheme = null;
 let roomStompClient = null;
 let roomSubscription = null;
+let publicChatSubscription = null;
 let privateChatSubscription = null;
 let intentionalRoomWebSocketDisconnect = true;
 let roomWebSocketHasConnected = false;
@@ -364,6 +373,60 @@ async function loadRoomDetails(roomId) {
   return readRoomApi(response, "部屋情報を取得できませんでした");
 }
 
+async function loadViewablePublicRooms() {
+  if (currentRoomInfo?.isPrivate) return [];
+  const response = await fetch("/api/rooms/public/viewable", { credentials: "same-origin" });
+  return readRoomApi(response, "閲覧できる部屋を取得できませんでした");
+}
+
+function updateViewingNavigation() {
+  const viewingIndex = viewablePublicRooms.findIndex(function (room) {
+    return Number(room.roomId) === Number(viewingRoomInfo?.roomId);
+  });
+  publicRoomViewNavigation.hidden = currentRoomInfo?.isPrivate || viewablePublicRooms.length < 2;
+  publicRoomViewPosition.textContent = viewingIndex >= 0
+    ? `${viewingIndex + 1} / ${viewablePublicRooms.length}` : "";
+  previousPublicRoomButton.disabled = viewingIndex <= 0;
+  nextPublicRoomButton.disabled = viewingIndex < 0 || viewingIndex >= viewablePublicRooms.length - 1;
+  const isViewingAnotherRoom = Number(viewingRoomInfo?.roomId) !== Number(currentRoomInfo?.roomId);
+  returnToJoinedRoomButton.hidden = !isViewingAnotherRoom;
+  document.querySelector(".workspace-status-controls").hidden = isViewingAnotherRoom;
+}
+
+function subscribeViewingPresence() {
+  if (viewingPresenceSubscription) {
+    viewingPresenceSubscription.unsubscribe();
+    viewingPresenceSubscription = null;
+  }
+  if (!roomStompClient?.connected
+      || Number(viewingRoomInfo?.roomId) === Number(currentRoomInfo?.roomId)) return;
+  const viewingRoomId = Number(viewingRoomInfo.roomId);
+  viewingPresenceSubscription = roomStompClient.subscribe(
+    `/topic/room/${viewingRoomId}/presence`,
+    function () {
+      if (Number(viewingRoomInfo?.roomId) === viewingRoomId) {
+        refreshRoomParticipants(viewingRoomId);
+      }
+    }
+  );
+}
+
+async function viewPublicRoomAt(index) {
+  const room = viewablePublicRooms[index];
+  if (!room) return;
+  const validationResponse = await fetch(
+    `/api/rooms/public/viewable/${encodeURIComponent(room.roomId)}`,
+    { credentials: "same-origin" }
+  );
+  viewingRoomInfo = await readRoomApi(validationResponse, "この部屋は閲覧できません");
+  viewingRoomInfo.isPrivate = false;
+  viewingRoomInfo.isCreator = false;
+  currentParticipants = await loadRoomParticipants(viewingRoomInfo.roomId);
+  renderWorkspace(viewingRoomInfo, currentParticipants);
+  updateViewingNavigation();
+  subscribeViewingPresence();
+}
+
 function synchronizeCurrentRoomDetails(room) {
   const loginUserId = Number(getAuthenticatedUser()?.userId);
   currentRoomInfo = {
@@ -409,13 +472,13 @@ async function refreshRoomParticipants(roomId) {
     do {
       roomParticipantsRefreshRequested = false;
       const refreshRoomId = roomParticipantsRefreshRoomId;
-      if (Number(currentRoomInfo?.roomId) !== refreshRoomId) continue;
+      if (Number(viewingRoomInfo?.roomId) !== refreshRoomId) continue;
 
       try {
         const participants = await loadRoomParticipants(refreshRoomId);
-        if (Number(currentRoomInfo?.roomId) !== refreshRoomId) continue;
+        if (Number(viewingRoomInfo?.roomId) !== refreshRoomId) continue;
         currentParticipants = participants;
-        renderWorkspace(currentRoomInfo, currentParticipants);
+        renderWorkspace(viewingRoomInfo, currentParticipants);
       } catch (error) {
         console.error("参加者一覧のリアルタイム更新に失敗しました", error);
       }
@@ -435,6 +498,7 @@ function handleRoomRealtimeEvent(event) {
     appendRoomChatMessage(event);
     return;
   }
+  if (eventRoomId !== Number(viewingRoomInfo?.roomId)) return;
   if (event?.type === "theme-changed") {
     applyRoomTheme(event.theme);
     return;
@@ -537,6 +601,12 @@ async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
         mergeRoomChatMessages(selectedChatTarget, privateHistory);
       }
     }
+    if (Number(viewingRoomInfo?.roomId) !== roomId) {
+      const viewingIndex = viewablePublicRooms.findIndex(function (viewableRoom) {
+        return Number(viewableRoom.roomId) === Number(viewingRoomInfo?.roomId);
+      });
+      if (viewingIndex >= 0) await viewPublicRoomAt(viewingIndex);
+    }
     console.log("Room state refreshed");
   } catch (error) {
     console.warn("WebSocket再接続後の参加者同期に失敗しました", error);
@@ -547,6 +617,10 @@ async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
 function disconnectRoomWebSocket() {
   intentionalRoomWebSocketDisconnect = true;
   roomWebSocketHasConnected = false;
+  if (viewingPresenceSubscription) {
+    viewingPresenceSubscription.unsubscribe();
+    viewingPresenceSubscription = null;
+  }
   if (roomSubscription) {
     try {
       roomSubscription.unsubscribe();
@@ -554,6 +628,14 @@ function disconnectRoomWebSocket() {
       console.error("WebSocketの購読解除に失敗しました", error);
     }
     roomSubscription = null;
+  }
+  if (publicChatSubscription) {
+    try {
+      publicChatSubscription.unsubscribe();
+    } catch (error) {
+      console.error("public全体チャットの購読解除に失敗しました", error);
+    }
+    publicChatSubscription = null;
   }
   if (privateChatSubscription) {
     try {
@@ -614,6 +696,14 @@ function connectRoomWebSocket(roomId) {
         }
         privateChatSubscription = null;
       }
+      if (publicChatSubscription) {
+        try {
+          publicChatSubscription.unsubscribe();
+        } catch (error) {
+          console.warn("古いpublic全体チャット購読の解除に失敗しました", error);
+        }
+        publicChatSubscription = null;
+      }
 
       console.log(roomWebSocketHasConnected
         ? "WebSocket reconnected"
@@ -628,6 +718,24 @@ function connectRoomWebSocket(roomId) {
           console.error("WebSocket通知の解析に失敗しました", error);
         }
       });
+      if (!currentRoomInfo.isPrivate) {
+        const subscribedTheme = currentRoomInfo.theme;
+        publicChatSubscription = client.subscribe(
+          `/topic/public-chat/${subscribedTheme}`,
+          function (message) {
+            try {
+              const event = JSON.parse(message.body);
+              if (event?.type === "chat-message"
+                  && !currentRoomInfo?.isPrivate
+                  && currentRoomInfo?.theme === subscribedTheme) {
+                appendRoomChatMessage(event);
+              }
+            } catch (error) {
+              console.error("public全体チャット通知を解析できませんでした", error);
+            }
+          }
+        );
+      }
       privateChatSubscription = client.subscribe(
         "/user/queue/private-chat",
         function (message) {
@@ -642,6 +750,7 @@ function connectRoomWebSocket(roomId) {
         ? `Resubscribed to ${destination}`
         : `Subscribed to ${destination}`);
       roomWebSocketHasConnected = true;
+      subscribeViewingPresence();
       synchronizeRoomAfterWebSocketConnect(client, activeRoomId);
     },
     onStompError: function (frame) {
@@ -655,6 +764,8 @@ function connectRoomWebSocket(roomId) {
     onWebSocketClose: function () {
       if (roomStompClient === client && !intentionalRoomWebSocketDisconnect) {
         roomSubscription = null;
+        publicChatSubscription = null;
+        privateChatSubscription = null;
         console.warn("WebSocket disconnected. Reconnecting WebSocket...");
       }
     }
@@ -853,8 +964,7 @@ function appendRoomChatMessage(message) {
 }
 
 function handlePrivateChatMessage(message) {
-  if (message?.type !== "private-chat-message"
-      || Number(message.roomId) !== Number(currentRoomInfo?.roomId)) return;
+  if (message?.type !== "private-chat-message") return;
   const myUserId = Number(getAuthenticatedUser()?.userId);
   const senderUserId = Number(message.userId);
   const targetUserId = Number(message.targetUserId);
@@ -1004,6 +1114,8 @@ async function initializeRoom(queryString) {
   stopHeartbeat();
   disconnectRoomWebSocket();
   currentRoomInfo = getRoomInfo(queryString);
+  viewingRoomInfo = currentRoomInfo;
+  viewablePublicRooms = [];
   myStatus = "working";
   roomEnteredAt = Date.now();
   loadMyWorkspaceState();
@@ -1026,6 +1138,7 @@ async function initializeRoom(queryString) {
       loadRoomDetails(currentRoomInfo.roomId)
     ]);
     synchronizeCurrentRoomDetails(room);
+    viewingRoomInfo = currentRoomInfo;
     currentParticipants = participants;
     const history = await loadRoomChatHistory(currentRoomInfo.roomId);
     const myParticipant = currentParticipants.find(function (participant) {
@@ -1037,6 +1150,8 @@ async function initializeRoom(queryString) {
       myWorkContentInput.value = myWorkContent;
     }
     renderWorkspace(currentRoomInfo, currentParticipants);
+    viewablePublicRooms = await loadViewablePublicRooms();
+    updateViewingNavigation();
     mergeRoomChatMessages("all", history);
   } catch (error) {
     currentParticipants = [];
@@ -1130,6 +1245,30 @@ settingsThemeInputs.forEach(function (input) {
 });
 
 saveRoomThemeButton.addEventListener("click", saveRoomTheme);
+previousPublicRoomButton.addEventListener("click", function () {
+  const index = viewablePublicRooms.findIndex(function (room) {
+    return Number(room.roomId) === Number(viewingRoomInfo?.roomId);
+  });
+  viewPublicRoomAt(index - 1).catch(function (error) {
+    leaveRoomError.textContent = error.message;
+  });
+});
+nextPublicRoomButton.addEventListener("click", function () {
+  const index = viewablePublicRooms.findIndex(function (room) {
+    return Number(room.roomId) === Number(viewingRoomInfo?.roomId);
+  });
+  viewPublicRoomAt(index + 1).catch(function (error) {
+    leaveRoomError.textContent = error.message;
+  });
+});
+returnToJoinedRoomButton.addEventListener("click", function () {
+  const index = viewablePublicRooms.findIndex(function (room) {
+    return Number(room.roomId) === Number(currentRoomInfo?.roomId);
+  });
+  viewPublicRoomAt(index).catch(function (error) {
+    leaveRoomError.textContent = error.message;
+  });
+});
 closeRoomSettingsButton.addEventListener("click", closeRoomSettingsModal);
 
 roomSettingsOverlay.addEventListener("click", function (event) {

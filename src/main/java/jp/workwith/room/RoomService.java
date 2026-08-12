@@ -101,6 +101,21 @@ public class RoomService {
         return roomRepository.findPublicRooms();
     }
 
+    public List<Room> findViewablePublicRooms(long userId) {
+        long joinedRoomId = seatAssignmentService.findAssignedRoomId(userId)
+                .orElseThrow(jp.workwith.seatassignment.SeatAssignmentNotFoundException::new);
+        Room joinedRoom = findById(joinedRoomId);
+        if (!"public".equals(joinedRoom.getRoomType())) return List.of();
+        return roomRepository.findPublicRoomsByTheme(joinedRoom.getTheme());
+    }
+
+    public Room findViewablePublicRoom(long userId, long viewingRoomId) {
+        return findViewablePublicRooms(userId).stream()
+                .filter(room -> room.getRoomId() == viewingRoomId)
+                .findFirst()
+                .orElseThrow(RoomNotFoundException::new);
+    }
+
     public List<Room> findCreatedRooms(long userId) {
         return roomRepository.findByCreatedBy(userId);
     }

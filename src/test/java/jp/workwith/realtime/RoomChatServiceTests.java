@@ -110,10 +110,12 @@ class RoomChatServiceTests {
     void returnsLatestGlobalHistoryForSeatedUser() {
         List<ChatHistoryMessage> history = List.of(new ChatHistoryMessage(
                 101L, 5L, 12L, "server-user", null, "hello", LocalDateTime.now()));
-        when(chatMessageRepository.findLatestGlobalMessages(5L, 50)).thenReturn(history);
+        when(chatMessageRepository.findLatestGlobalMessagesInPublicTheme("focus", 50))
+                .thenReturn(history);
 
         assertThat(service.findGlobalHistory(5L, 12L)).isEqualTo(history);
-        org.mockito.Mockito.verify(chatMessageRepository).findLatestGlobalMessages(5L, 50);
+        org.mockito.Mockito.verify(chatMessageRepository)
+                .findLatestGlobalMessagesInPublicTheme("focus", 50);
     }
 
     @Test
@@ -156,5 +158,21 @@ class RoomChatServiceTests {
                 .thenReturn(history);
 
         assertThat(service.findPrivateHistory(5L, 12L, 13L)).isEqualTo(history);
+    }
+
+    @Test
+    void allowsPrivateChatAcrossPublicRoomsInTheSameThemeOnly() {
+        when(seatRepository.findById(52L)).thenReturn(Optional.of(
+                new Seat(52L, 8L, 2, 20.0, 20.0)));
+        when(roomRepository.findById(8L)).thenReturn(Optional.of(new Room(
+                8L, null, "public", "Room 8", "focus", null, 10, null)));
+
+        assertThat(service.createMessage(5L, 12L, 13L, "cross room").targetUserId())
+                .isEqualTo(13L);
+
+        when(roomRepository.findById(8L)).thenReturn(Optional.of(new Room(
+                8L, null, "public", "Room 8", "casual", null, 10, null)));
+        assertThatThrownBy(() -> service.createMessage(5L, 12L, 13L, "other category"))
+                .isInstanceOf(SeatAssignmentRoomMismatchException.class);
     }
 }

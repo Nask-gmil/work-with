@@ -3,7 +3,6 @@ package jp.workwith.chat;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.List;
 
@@ -139,6 +138,61 @@ public class ChatMessageRepository {
                 secondUserId,
                 firstUserId,
                 limit);
+    }
+
+    public List<ChatHistoryMessage> findLatestGlobalMessagesInPublicTheme(
+            String theme, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT message_id, room_id, user_id, username, target_user_id, content, sent_at
+                FROM (
+                    SELECT cm.message_id, cm.room_id, cm.user_id, u.username,
+                           cm.target_user_id, cm.content, cm.sent_at
+                    FROM CHAT_MESSAGES cm
+                    JOIN USERS u ON u.user_id = cm.user_id
+                    JOIN ROOMS r ON r.room_id = cm.room_id
+                    WHERE r.room_type = 'public'
+                      AND r.theme = ?
+                      AND cm.target_user_id IS NULL
+                    ORDER BY cm.sent_at DESC, cm.message_id DESC
+                    LIMIT ?
+                ) latest_messages
+                ORDER BY sent_at ASC, message_id ASC
+                """,
+                (resultSet, rowNumber) -> new ChatHistoryMessage(
+                        resultSet.getLong("message_id"), resultSet.getLong("room_id"),
+                        resultSet.getLong("user_id"), resultSet.getString("username"), null,
+                        resultSet.getString("content"),
+                        resultSet.getTimestamp("sent_at").toLocalDateTime()),
+                theme, limit);
+    }
+
+    public List<ChatHistoryMessage> findLatestPrivateMessagesInPublicTheme(
+            String theme, long firstUserId, long secondUserId, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT message_id, room_id, user_id, username,
+                       target_user_id, content, sent_at
+                FROM (
+                    SELECT cm.message_id, cm.room_id, cm.user_id, u.username,
+                           cm.target_user_id, cm.content, cm.sent_at
+                    FROM CHAT_MESSAGES cm
+                    JOIN USERS u ON u.user_id = cm.user_id
+                    JOIN ROOMS r ON r.room_id = cm.room_id
+                    WHERE r.room_type = 'public' AND r.theme = ?
+                      AND ((cm.user_id = ? AND cm.target_user_id = ?)
+                        OR (cm.user_id = ? AND cm.target_user_id = ?))
+                    ORDER BY cm.sent_at DESC, cm.message_id DESC
+                    LIMIT ?
+                ) latest_messages
+                ORDER BY sent_at ASC, message_id ASC
+                """,
+                (resultSet, rowNumber) -> new ChatHistoryMessage(
+                        resultSet.getLong("message_id"), resultSet.getLong("room_id"),
+                        resultSet.getLong("user_id"), resultSet.getString("username"),
+                        resultSet.getLong("target_user_id"), resultSet.getString("content"),
+                        resultSet.getTimestamp("sent_at").toLocalDateTime()),
+                theme, firstUserId, secondUserId, secondUserId, firstUserId, limit);
     }
 
     public boolean deleteById(long messageId) {

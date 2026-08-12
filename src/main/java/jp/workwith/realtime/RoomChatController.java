@@ -50,7 +50,8 @@ public class RoomChatController {
                     request == null ? null : request.targetUserId(),
                     request == null ? null : request.content());
             if (message.targetUserId() == null) {
-                realtimeNotifier.notifyChatMessage(message);
+                realtimeNotifier.notifyChatMessage(
+                        message, roomChatService.findPublicTheme(roomId));
             } else {
                 realtimeNotifier.notifyPrivateChatMessage(message);
             }

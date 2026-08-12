@@ -395,6 +395,17 @@
   font-weight: 600;
 }
 
+#public-room-view-navigation {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+#public-room-view-navigation[hidden] {
+  display: none;
+}
+
 #my-work-content,
 #private-memo {
   width: 100%;

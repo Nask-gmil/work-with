@@ -76,6 +76,36 @@ public class RoomController {
         }
     }
 
+    @GetMapping("/public/viewable")
+    public ResponseEntity<?> findViewablePublicRooms(HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(toResponses(
+                    roomService.findViewablePublicRooms(getLoginUserId(request))));
+        } catch (jp.workwith.seatassignment.SeatAssignmentNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse("public部屋に着席していません"));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
+    @GetMapping("/public/viewable/{viewingRoomId}")
+    public ResponseEntity<?> findViewablePublicRoom(
+            @PathVariable long viewingRoomId, HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(RoomResponse.from(roomService.findViewablePublicRoom(
+                    getLoginUserId(request), viewingRoomId)));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse("この部屋は閲覧できません"));
+        } catch (jp.workwith.seatassignment.SeatAssignmentNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse("public部屋に着席していません"));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
     @GetMapping("/mine")
     public ResponseEntity<?> findMyRooms(HttpServletRequest request) {
         try {

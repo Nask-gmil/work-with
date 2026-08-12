@@ -87,6 +87,20 @@ class RoomRealtimeNotifierTests {
     }
 
     @Test
+    void sendsPublicChatMessageToItsThemeTopic() {
+        SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
+                SimpMessagingTemplate.class);
+        RoomRealtimeNotifier notifier = new RoomRealtimeNotifier(messagingTemplate);
+        RoomChatMessage message = new RoomChatMessage(
+                "chat-message", 102L, 8L, 12L, "user", null, "hello",
+                java.time.LocalDateTime.now());
+
+        notifier.notifyChatMessage(message, "focus");
+
+        verify(messagingTemplate).convertAndSend("/topic/public-chat/focus", message);
+    }
+
+    @Test
     void sendsPrivateMessageOnlyToSenderAndTargetUserQueues() {
         SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
                 SimpMessagingTemplate.class);

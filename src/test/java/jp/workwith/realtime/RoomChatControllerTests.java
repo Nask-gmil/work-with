@@ -27,21 +27,22 @@ class RoomChatControllerTests {
                 "chat-message", 101L, 5L, 12L, "server-user", null, "こんにちは",
                 LocalDateTime.now());
         when(service.createMessage(5L, 12L, null, "こんにちは")).thenReturn(message);
+        when(service.findPublicTheme(5L)).thenReturn("focus");
         controller.sendChatMessage(5L, new RoomChatRequest(null, "こんにちは"), authenticatedHeaders(12L));
         verify(service).createMessage(5L, 12L, null, "こんにちは");
-        verify(notifier).notifyChatMessage(message);
+        verify(notifier).notifyChatMessage(message, "focus");
     }
 
     @Test
     void doesNotPublishForUnauthenticatedOrUnseatedUser() {
         controller.sendChatMessage(5L, new RoomChatRequest(null, "hello"),
                 SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE));
-        verify(notifier, never()).notifyChatMessage(any());
+        verify(notifier, never()).notifyChatMessage(any(), any());
 
         when(service.createMessage(5L, 12L, null, "hello"))
                 .thenThrow(new SeatAssignmentNotFoundException());
         controller.sendChatMessage(5L, new RoomChatRequest(null, "hello"), authenticatedHeaders(12L));
-        verify(notifier, never()).notifyChatMessage(any());
+        verify(notifier, never()).notifyChatMessage(any(), any());
     }
 
     @Test
@@ -51,7 +52,7 @@ class RoomChatControllerTests {
 
         controller.sendChatMessage(5L, new RoomChatRequest(null, "hello"), authenticatedHeaders(12L));
 
-        verify(notifier, never()).notifyChatMessage(any());
+        verify(notifier, never()).notifyChatMessage(any(), any());
     }
 
     @Test
@@ -65,7 +66,7 @@ class RoomChatControllerTests {
                 5L, new RoomChatRequest(13L, "secret"), authenticatedHeaders(12L));
 
         verify(notifier).notifyPrivateChatMessage(message);
-        verify(notifier, never()).notifyChatMessage(any());
+        verify(notifier, never()).notifyChatMessage(any(), any());
     }
 
     private SimpMessageHeaderAccessor authenticatedHeaders(long userId) {
