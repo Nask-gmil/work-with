@@ -441,7 +441,7 @@
             hidden
           >
             <div class="chat-target-field">
-              <label for="chat-target">送信先（アバターをクリックしても選べます）</label>
+              <label for="chat-target">送信先</label>
               <select id="chat-target">
                 <option value="all">全体</option>
               </select>
@@ -457,10 +457,12 @@
               <textarea
                 id="chat-message-input"
                 rows="2"
+                maxlength="500"
                 placeholder="全体へメッセージを送る"
               ></textarea>
               <button type="button" id="send-chat-button" aria-label="メッセージを送信">↑</button>
             </div>
+            <p id="chat-error" class="error-message" aria-live="polite"></p>
           </section>
         </div>
       </aside>

@@ -23,4 +23,15 @@ public class RoomRealtimeNotifier {
                 "/topic/room/" + roomId,
                 new RoomRealtimeEvent("status-changed", roomId));
     }
+
+    public void notifyChatMessage(RoomChatMessage message) {
+        messagingTemplate.convertAndSend("/topic/room/" + message.roomId(), message);
+    }
+
+    public void notifyPrivateChatMessage(RoomChatMessage message) {
+        messagingTemplate.convertAndSendToUser(
+                Long.toString(message.userId()), "/queue/private-chat", message);
+        messagingTemplate.convertAndSendToUser(
+                Long.toString(message.targetUserId()), "/queue/private-chat", message);
+    }
 }

@@ -29,6 +29,7 @@ const chatHistoryTitle = document.getElementById("chat-history-title");
 const chatHistory = document.getElementById("chat-history");
 const chatMessageInput = document.getElementById("chat-message-input");
 const sendChatButton = document.getElementById("send-chat-button");
+const chatError = document.getElementById("chat-error");
 const roomSettingsOverlay = document.getElementById("room-settings-overlay");
 const closeRoomSettingsButton = document.getElementById("close-room-settings-button");
 const creatorThemeSettings = document.getElementById("creator-theme-settings");
@@ -72,6 +73,7 @@ let selectedChatTarget = "all";
 let selectedRoomTheme = null;
 let roomStompClient = null;
 let roomSubscription = null;
+let privateChatSubscription = null;
 let intentionalRoomWebSocketDisconnect = true;
 let roomWebSocketHasConnected = false;
 let roomParticipantsRefreshInProgress = false;
@@ -83,15 +85,10 @@ const heartbeatRequestsInProgress = new Set();
 
 // 全体チャットと個別チャットの履歴は、送信先ごとに分けて管理します。
 const chatHistories = {
-  all: [
-    { senderId: "seat-upper-2", senderName: "上段2", content: "今日もよろしくお願いします" },
-    { senderId: "me", senderName: "自分", content: "よろしくお願いします" }
-  ],
-  "seat-upper-2": [
-    { senderId: "seat-upper-2", senderName: "上段2", content: "Javaのエラーについて質問したいです" },
-    { senderId: "me", senderName: "自分", content: "見てみます" }
-  ]
+  all: []
 };
+const displayedChatMessageIds = new Set();
+const displayedPrivateChatMessageIds = new Map();
 
 /** 現在のユーザー名を取得します。 */
 function getWorkspaceUsername() {
@@ -318,6 +315,24 @@ async function loadRoomParticipants(roomId) {
   });
 }
 
+/** 保存済みの全体チャット最新50件をREST APIから取得します。 */
+async function loadRoomChatHistory(roomId) {
+  if (!roomId) return [];
+  const response = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}/chat-messages`,
+    { credentials: "same-origin" }
+  );
+  return readRoomApi(response, "チャット履歴を取得できませんでした");
+}
+
+async function loadPrivateChatHistory(roomId, otherUserId) {
+  const response = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}/chat-messages/private/${encodeURIComponent(otherUserId)}`,
+    { credentials: "same-origin" }
+  );
+  return readRoomApi(response, "個別チャット履歴を取得できませんでした");
+}
+
 /** 通知された部屋の参加者をRESTから再取得し、既存の描画処理へ反映します。 */
 async function refreshRoomParticipants(roomId) {
   roomParticipantsRefreshRoomId = roomId;
@@ -350,9 +365,14 @@ async function refreshRoomParticipants(roomId) {
 /** 現在表示中の部屋に対する参加者変更通知だけを処理します。 */
 function handleRoomRealtimeEvent(event) {
   const eventRoomId = Number(event?.roomId);
-  if ((event?.type !== "participants-changed" && event?.type !== "status-changed")
-      || !Number.isInteger(eventRoomId)
+  if (!Number.isInteger(eventRoomId)
       || eventRoomId !== Number(currentRoomInfo?.roomId)) return;
+
+  if (event?.type === "chat-message") {
+    appendRoomChatMessage(event);
+    return;
+  }
+  if (event?.type !== "participants-changed" && event?.type !== "status-changed") return;
 
   refreshRoomParticipants(eventRoomId);
 }
@@ -427,6 +447,17 @@ async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
 
     currentParticipants = participants;
     renderWorkspace(currentRoomInfo, currentParticipants);
+    const history = await loadRoomChatHistory(roomId);
+    if (roomStompClient !== client
+        || Number(currentRoomInfo?.roomId) !== roomId) return;
+    mergeRoomChatMessages("all", history);
+    if (selectedChatTarget !== "all") {
+      const privateHistory = await loadPrivateChatHistory(roomId, selectedChatTarget);
+      if (roomStompClient === client
+          && Number(currentRoomInfo?.roomId) === roomId) {
+        mergeRoomChatMessages(selectedChatTarget, privateHistory);
+      }
+    }
     console.log("Room state refreshed");
   } catch (error) {
     console.warn("WebSocket再接続後の参加者同期に失敗しました", error);
@@ -444,6 +475,14 @@ function disconnectRoomWebSocket() {
       console.error("WebSocketの購読解除に失敗しました", error);
     }
     roomSubscription = null;
+  }
+  if (privateChatSubscription) {
+    try {
+      privateChatSubscription.unsubscribe();
+    } catch (error) {
+      console.error("個別チャットの購読解除に失敗しました", error);
+    }
+    privateChatSubscription = null;
   }
   if (!roomStompClient) return;
   const client = roomStompClient;
@@ -488,6 +527,14 @@ function connectRoomWebSocket(roomId) {
         }
         roomSubscription = null;
       }
+      if (privateChatSubscription) {
+        try {
+          privateChatSubscription.unsubscribe();
+        } catch (error) {
+          console.warn("古い個別チャット購読の解除に失敗しました", error);
+        }
+        privateChatSubscription = null;
+      }
 
       console.log(roomWebSocketHasConnected
         ? "WebSocket reconnected"
@@ -502,6 +549,16 @@ function connectRoomWebSocket(roomId) {
           console.error("WebSocket通知の解析に失敗しました", error);
         }
       });
+      privateChatSubscription = client.subscribe(
+        "/user/queue/private-chat",
+        function (message) {
+          try {
+            handlePrivateChatMessage(JSON.parse(message.body));
+          } catch (error) {
+            console.error("個別チャット通知の解析に失敗しました", error);
+          }
+        }
+      );
       console.log(roomWebSocketHasConnected
         ? `Resubscribed to ${destination}`
         : `Subscribed to ${destination}`);
@@ -605,32 +662,34 @@ function renderParticipants(participants) {
   });
 }
 
-/** 現在の参加者一覧から、入室順にチャット送信先を作成します。 */
+/** 全体と、現在同じ部屋にいる自分以外の参加者を送信先にします。 */
 function populateChatTargets(participants) {
-  const otherParticipants = participants
-    .filter(function (participant) { return !participant.isMe; })
-    .sort(function (first, second) { return first.joinOrder - second.joinOrder; });
-
   chatTargetSelect.replaceChildren();
   const allOption = document.createElement("option");
   allOption.value = "all";
   allOption.textContent = "全体";
   chatTargetSelect.appendChild(allOption);
-
-  otherParticipants.forEach(function (participant) {
-    const option = document.createElement("option");
-    option.value = participant.id;
-    option.textContent = `${participant.name}さん`;
-    chatTargetSelect.appendChild(option);
-    if (!chatHistories[participant.id]) chatHistories[participant.id] = [];
-  });
-
-  if (![...chatTargetSelect.options].some(function (option) {
+  participants.filter(function (participant) { return !participant.isMe; })
+    .forEach(function (participant) {
+      const option = document.createElement("option");
+      option.value = participant.id;
+      option.textContent = `${participant.name}さん`;
+      chatTargetSelect.appendChild(option);
+      if (!chatHistories[participant.id]) chatHistories[participant.id] = [];
+      if (!displayedPrivateChatMessageIds.has(participant.id)) {
+        displayedPrivateChatMessageIds.set(participant.id, new Set());
+      }
+    });
+  const selectedTargetExists = [...chatTargetSelect.options].some(function (option) {
     return option.value === selectedChatTarget;
-  })) {
+  });
+  if (!selectedTargetExists) {
     selectedChatTarget = "all";
+    renderChatHistory();
+    updateChatPlaceholder();
   }
   chatTargetSelect.value = selectedChatTarget;
+  chatTargetSelect.disabled = false;
 }
 
 /** userIdから参加者を取得します。 */
@@ -683,7 +742,7 @@ function scrollChatToBottom() {
 }
 
 /** アバターまたはプルダウンから個別チャット相手を選択します。 */
-function selectChatTarget(userId) {
+async function selectChatTarget(userId) {
   if (userId === "me") return;
   const targetExists = userId === "all" || Boolean(getChatTargetParticipant(userId));
   if (!targetExists) return;
@@ -694,6 +753,13 @@ function selectChatTarget(userId) {
   renderChatHistory();
   updateChatPlaceholder();
   scrollChatToBottom();
+  if (userId === "all" || !currentRoomInfo?.roomId) return;
+  try {
+    const history = await loadPrivateChatHistory(currentRoomInfo.roomId, userId);
+    if (selectedChatTarget === userId) mergeRoomChatMessages(userId, history);
+  } catch (error) {
+    chatError.textContent = error.message;
+  }
 }
 
 /** 指定された履歴へメッセージを追加します。 */
@@ -702,20 +768,84 @@ function addChatMessage(targetId, message) {
   chatHistories[targetId].push(message);
 }
 
+/** chat-messageイベントをプレーンテキストとして全体チャットへ追加します。 */
+function appendRoomChatMessage(message) {
+  mergeRoomChatMessages("all", [message]);
+}
+
+function handlePrivateChatMessage(message) {
+  if (message?.type !== "private-chat-message"
+      || Number(message.roomId) !== Number(currentRoomInfo?.roomId)) return;
+  const myUserId = Number(getAuthenticatedUser()?.userId);
+  const senderUserId = Number(message.userId);
+  const targetUserId = Number(message.targetUserId);
+  const otherUserId = senderUserId === myUserId ? targetUserId : senderUserId;
+  if (!Number.isInteger(otherUserId)) return;
+  mergeRoomChatMessages(String(otherUserId), [message]);
+}
+
+/** REST履歴とWebSocket新着をmessageIdで重複排除し、時系列順に表示します。 */
+function mergeRoomChatMessages(targetId, messages) {
+  const messageIds = targetId === "all"
+    ? displayedChatMessageIds
+    : displayedPrivateChatMessageIds.get(targetId) || new Set();
+  if (targetId !== "all" && !displayedPrivateChatMessageIds.has(targetId)) {
+    displayedPrivateChatMessageIds.set(targetId, messageIds);
+  }
+  let changed = false;
+  messages.forEach(function (message) {
+    const messageId = Number(message?.messageId);
+    if (!Number.isInteger(messageId)
+        || messageIds.has(messageId)
+        || typeof message?.username !== "string"
+        || typeof message?.content !== "string") return;
+    messageIds.add(messageId);
+    addChatMessage(targetId, {
+      messageId,
+      senderId: String(message.userId),
+      senderName: message.username,
+      content: message.content,
+      sentAt: message.sentAt
+    });
+    changed = true;
+  });
+  if (!changed) return;
+  chatHistories[targetId].sort(function (first, second) {
+    const timeDifference = Date.parse(first.sentAt) - Date.parse(second.sentAt);
+    return timeDifference || first.messageId - second.messageId;
+  });
+  if (selectedChatTarget === targetId) {
+    renderChatHistory();
+    scrollChatToBottom();
+  }
+}
+
 /** Enterまたは送信ボタンから呼び出す共通送信処理です。 */
 function sendChatMessage() {
-  const message = chatMessageInput.value.trim();
-  if (!message) return;
+  const content = chatMessageInput.value.trim();
+  chatError.textContent = "";
+  if (!content || content.length > 500) {
+    chatError.textContent = "メッセージは1文字以上500文字以内で入力してください";
+    return;
+  }
+  if (!roomStompClient?.connected || !currentRoomInfo?.roomId) {
+    chatError.textContent = "WebSocketの再接続後にもう一度送信してください";
+    return;
+  }
 
-  addChatMessage(selectedChatTarget, {
-    senderId: "me",
-    senderName: getWorkspaceUsername(),
-    content: message,
-    sentAt: new Date()
-  });
-  chatMessageInput.value = "";
-  renderChatHistory();
-  scrollChatToBottom();
+  try {
+    roomStompClient.publish({
+      destination: `/app/room/${currentRoomInfo.roomId}/chat`,
+      body: JSON.stringify({
+        targetUserId: selectedChatTarget === "all" ? null : Number(selectedChatTarget),
+        content
+      })
+    });
+    chatMessageInput.value = "";
+  } catch (error) {
+    chatError.textContent = "メッセージを送信できませんでした";
+    console.warn("チャット送信に失敗しました", error);
+  }
 }
 
 /** 部屋情報とレイヤー画像を画面へ反映します。 */
@@ -799,6 +929,13 @@ async function initializeRoom(queryString) {
   roomEnteredAt = Date.now();
   loadMyWorkspaceState();
   selectedChatTarget = "all";
+  Object.keys(chatHistories).forEach(function (targetId) {
+    if (targetId !== "all") delete chatHistories[targetId];
+  });
+  chatHistories.all = [];
+  displayedChatMessageIds.clear();
+  displayedPrivateChatMessageIds.clear();
+  chatError.textContent = "";
   switchSideTab("self");
   updateElapsedTime();
   setMyStatus(myStatus);
@@ -806,11 +943,13 @@ async function initializeRoom(queryString) {
   renderWorkspace(currentRoomInfo, currentParticipants);
   try {
     currentParticipants = await loadRoomParticipants(currentRoomInfo.roomId);
+    const history = await loadRoomChatHistory(currentRoomInfo.roomId);
     const myParticipant = currentParticipants.find(function (participant) {
       return participant.isMe;
     });
     if (myParticipant) setMyStatus(myParticipant.status);
     renderWorkspace(currentRoomInfo, currentParticipants);
+    mergeRoomChatMessages("all", history);
   } catch (error) {
     currentParticipants = [];
     renderWorkspace(currentRoomInfo, currentParticipants);
