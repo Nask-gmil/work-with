@@ -98,6 +98,12 @@ public class RoomRepository {
         return jdbcTemplate.query(sql, ROOM_ROW_MAPPER, userId);
     }
 
+    public boolean updateTheme(long roomId, String theme) {
+        return jdbcTemplate.update(
+                "UPDATE ROOMS SET theme = ? WHERE room_id = ?",
+                theme, roomId) == 1;
+    }
+
     /** テストデータの後片付けなどに使用します。 */
     public boolean deleteById(long roomId) {
         return jdbcTemplate.update("DELETE FROM ROOMS WHERE room_id = ?", roomId) == 1;

@@ -53,6 +53,16 @@ class RoomRepositoryTests {
             assertThat(roomRepository.findByCreatedBy(user.getUserId()))
                     .extracting(Room::getRoomId)
                     .contains(privateRoom.getRoomId(), publicRoom.getRoomId());
+
+            assertThat(roomRepository.updateTheme(privateRoom.getRoomId(), "night"))
+                    .isTrue();
+            assertThat(roomRepository.findById(privateRoom.getRoomId()))
+                    .get()
+                    .satisfies(room -> {
+                        assertThat(room.getTheme()).isEqualTo("night");
+                        assertThat(room.getBackgroundUrl())
+                                .isEqualTo("work-space-pic/room-forcus-task.png");
+                    });
         } finally {
             if (privateRoom != null) {
                 roomRepository.deleteById(privateRoom.getRoomId());

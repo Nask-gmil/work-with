@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
+import jp.workwith.room.RoomThemeForbiddenException;
+import jp.workwith.room.ThemeUpdateResult;
 import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.AlreadyAssignedToAnotherRoomException;
 import jp.workwith.seatassignment.RoomFullException;
@@ -101,6 +104,31 @@ public class RoomController {
     public ResponseEntity<?> findById(@PathVariable long roomId) {
         try {
             return ResponseEntity.ok(RoomResponse.from(roomService.findById(roomId)));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
+    @PatchMapping("/{roomId}/theme")
+    public ResponseEntity<?> updateTheme(
+            @PathVariable long roomId,
+            @RequestBody UpdateRoomThemeRequest requestBody,
+            HttpServletRequest request) {
+        try {
+            ThemeUpdateResult result = roomService.updatePrivateRoomTheme(
+                    roomId, getLoginUserId(request), requestBody.theme());
+            if (result.changed()) {
+                realtimeNotifier.notifyThemeChanged(roomId, result.room().getTheme());
+            }
+            return ResponseEntity.ok(RoomResponse.from(result.room()));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(new ApiErrorResponse(exception.getMessage()));
+        } catch (RoomThemeForbiddenException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(exception.getMessage()));

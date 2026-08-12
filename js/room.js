@@ -248,19 +248,40 @@ function selectRoomTheme(theme) {
 function applyRoomTheme(theme) {
   if (!currentRoomInfo || !roomSettingsThemeLabels[theme]) return;
   currentRoomInfo.theme = theme;
-  renderWorkspace(currentRoomInfo);
+  workspaceScene.dataset.theme = theme;
+  roomBackgroundLayer.src = roomBackgrounds[theme];
+  roomBackgroundLayer.alt = `${currentRoomInfo.roomName}の背景`;
+  const hideChairLayers = theme === "focus";
+  upperChairLayer.hidden = hideChairLayers;
+  lowerChairLayer.hidden = hideChairLayers;
+  const privateRoom = getCurrentPrivateRoom();
+  if (privateRoom) {
+    privateRoom.theme = theme;
+    saveCurrentPrivateRoom(privateRoom);
+  }
 }
 
-/** 作成者が保存を押したときだけlocalStorageのテーマを更新します。 */
-function saveRoomTheme() {
+/** 作成者が選んだテーマをAPIへ保存します。画面反映はWebSocket通知で行います。 */
+async function saveRoomTheme() {
   const room = getCurrentPrivateRoom();
   if (!room || !isCurrentUserRoomCreator(room) || !selectedRoomTheme) return;
 
-  // テーマ更新APIは未実装のため、現在表示中のタブだけ一時的に反映します。
-  room.theme = selectedRoomTheme;
-  saveCurrentPrivateRoom(room);
-  applyRoomTheme(selectedRoomTheme);
-  closeRoomSettingsModal();
+  saveRoomThemeButton.disabled = true;
+  try {
+    const response = await fetch(`/api/rooms/${encodeURIComponent(room.roomId)}/theme`, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme: selectedRoomTheme })
+    });
+    const updatedRoom = await readRoomApi(response, "テーマを保存できませんでした");
+    saveCurrentPrivateRoom({ ...room, ...updatedRoom, isCreator: true });
+    closeRoomSettingsModal();
+  } catch (error) {
+    window.alert(error.message);
+  } finally {
+    saveRoomThemeButton.disabled = false;
+  }
 }
 
 /** API失敗を共通処理し、認証切れならログイン画面へ戻します。 */
@@ -313,6 +334,28 @@ async function loadRoomParticipants(roomId) {
       y: seat.posY
     }];
   });
+}
+
+async function loadRoomDetails(roomId) {
+  const response = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}`,
+    { credentials: "same-origin" }
+  );
+  return readRoomApi(response, "部屋情報を取得できませんでした");
+}
+
+function synchronizeCurrentRoomDetails(room) {
+  const loginUserId = Number(getAuthenticatedUser()?.userId);
+  currentRoomInfo = {
+    ...currentRoomInfo,
+    roomId: room.roomId,
+    roomCode: room.roomCode,
+    roomName: room.roomName,
+    theme: room.theme,
+    isPrivate: room.roomType === "private",
+    isCreator: Number(room.createdBy) === loginUserId
+  };
+  if (currentRoomInfo.isPrivate) saveCurrentPrivateRoom(currentRoomInfo);
 }
 
 /** 保存済みの全体チャット最新50件をREST APIから取得します。 */
@@ -372,6 +415,10 @@ function handleRoomRealtimeEvent(event) {
     appendRoomChatMessage(event);
     return;
   }
+  if (event?.type === "theme-changed") {
+    applyRoomTheme(event.theme);
+    return;
+  }
   if (event?.type !== "participants-changed" && event?.type !== "status-changed") return;
 
   refreshRoomParticipants(eventRoomId);
@@ -424,7 +471,10 @@ function startHeartbeat(roomId) {
 /** 再接続後にDBの現在状態を取得し、timeout済みならロビーへ戻します。 */
 async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
   try {
-    const participants = await loadRoomParticipants(roomId);
+    const [participants, room] = await Promise.all([
+      loadRoomParticipants(roomId),
+      loadRoomDetails(roomId)
+    ]);
     if (roomStompClient !== client
         || Number(currentRoomInfo?.roomId) !== roomId) return;
 
@@ -445,6 +495,7 @@ async function synchronizeRoomAfterWebSocketConnect(client, roomId) {
       return;
     }
 
+    synchronizeCurrentRoomDetails(room);
     currentParticipants = participants;
     renderWorkspace(currentRoomInfo, currentParticipants);
     const history = await loadRoomChatHistory(roomId);
@@ -942,7 +993,12 @@ async function initializeRoom(queryString) {
   currentParticipants = [];
   renderWorkspace(currentRoomInfo, currentParticipants);
   try {
-    currentParticipants = await loadRoomParticipants(currentRoomInfo.roomId);
+    const [participants, room] = await Promise.all([
+      loadRoomParticipants(currentRoomInfo.roomId),
+      loadRoomDetails(currentRoomInfo.roomId)
+    ]);
+    synchronizeCurrentRoomDetails(room);
+    currentParticipants = participants;
     const history = await loadRoomChatHistory(currentRoomInfo.roomId);
     const myParticipant = currentParticipants.find(function (participant) {
       return participant.isMe;

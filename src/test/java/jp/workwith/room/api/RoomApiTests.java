@@ -2,6 +2,7 @@ package jp.workwith.room.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -178,6 +179,65 @@ class RoomApiTests {
             });
             userRepository.deleteById(user.getUserId());
             userRepository.deleteById(secondUser.getUserId());
+        }
+    }
+
+    @Test
+    void onlyPrivateRoomCreatorCanUpdateTheme() throws Exception {
+        String username = "theme_api_" + UUID.randomUUID().toString().replace("-", "");
+        User creator = userService.register(username, "theme-api-password");
+        User otherUser = userService.register(username + "_other", "theme-api-password");
+        long roomId = roomIdFrom(mockMvc.perform(post("/api/rooms")
+                .session(loggedInSession(creator))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(roomJson("Theme room", "focus", 3)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        Room publicRoom = roomRepository.create(new Room(
+                null, null, "public", "Public theme room", "focus",
+                "work-space-pic/room-forcus-task.png", 10, null));
+
+        try {
+            mockMvc.perform(patch("/api/rooms/{roomId}/theme", roomId)
+                    .session(loggedInSession(creator))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"theme\":\"night\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.theme").value("night"));
+            assertThat(roomRepository.findById(roomId).orElseThrow().getTheme())
+                    .isEqualTo("night");
+
+            mockMvc.perform(patch("/api/rooms/{roomId}/theme", roomId)
+                    .session(loggedInSession(otherUser))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"theme\":\"casual\"}"))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(patch("/api/rooms/{roomId}/theme", publicRoom.getRoomId())
+                    .session(loggedInSession(creator))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"theme\":\"casual\"}"))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(patch("/api/rooms/{roomId}/theme", roomId)
+                    .session(loggedInSession(creator))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"theme\":\"invalid\"}"))
+                    .andExpect(status().isBadRequest());
+
+            mockMvc.perform(patch("/api/rooms/{roomId}/theme", Long.MAX_VALUE)
+                    .session(loggedInSession(creator))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"theme\":\"focus\"}"))
+                    .andExpect(status().isNotFound());
+        } finally {
+            seatRepository.findByRoomId(roomId).forEach(seat ->
+                    seatAssignmentRepository.deleteBySeatId(seat.getSeatId()));
+            seatRepository.deleteByRoomId(roomId);
+            roomRepository.deleteById(roomId);
+            roomRepository.deleteById(publicRoom.getRoomId());
+            userRepository.deleteById(creator.getUserId());
+            userRepository.deleteById(otherUser.getUserId());
         }
     }
 

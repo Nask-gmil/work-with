@@ -112,6 +112,25 @@ public class RoomService {
     }
 
     @Transactional
+    public ThemeUpdateResult updatePrivateRoomTheme(long roomId, long userId, String theme) {
+        Room room = findById(roomId);
+        if (!"private".equals(room.getRoomType())
+                || room.getCreatedBy() == null
+                || room.getCreatedBy() != userId) {
+            throw new RoomThemeForbiddenException();
+        }
+
+        String normalizedTheme = normalizeTheme(theme);
+        if (normalizedTheme.equals(room.getTheme())) {
+            return new ThemeUpdateResult(room, false);
+        }
+        if (!roomRepository.updateTheme(roomId, normalizedTheme)) {
+            throw new RoomNotFoundException();
+        }
+        return new ThemeUpdateResult(findById(roomId), true);
+    }
+
+    @Transactional
     public Room joinPublicRoom(long roomId, long userId) {
         Room room = findById(roomId);
         if (!"public".equals(room.getRoomType())) {
