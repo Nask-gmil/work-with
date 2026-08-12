@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
 import jp.workwith.seat.SeatRepository;
+import jp.workwith.seatassignment.SeatAssignmentRepository;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserService;
@@ -52,6 +53,9 @@ class RoomApiTests {
     @Autowired
     private SeatRepository seatRepository;
 
+    @Autowired
+    private SeatAssignmentRepository seatAssignmentRepository;
+
     @Test
     void requiresLoginForRoomApis() throws Exception {
         mockMvc.perform(post("/api/rooms")
@@ -70,7 +74,9 @@ class RoomApiTests {
     void createsPrivateRoomsFromSessionAndRetrievesThem() throws Exception {
         String username = "room_api_" + UUID.randomUUID().toString().replace("-", "");
         User user = userService.register(username, "room-api-password");
+        User secondUser = userService.register(username + "_second", "room-api-password");
         MockHttpSession session = loggedInSession(user);
+        MockHttpSession secondSession = loggedInSession(secondUser);
         List<Long> createdRoomIds = new ArrayList<>();
 
         try {
@@ -99,13 +105,14 @@ class RoomApiTests {
                     .get()
                     .extracting(Room::getRoomId)
                     .isEqualTo(savedRoom.getRoomId());
+            assertThat(seatAssignmentRepository.findByUserId(user.getUserId())).isPresent();
 
             MvcResult automaticNameResult = mockMvc.perform(post("/api/rooms")
-                    .session(session)
+                    .session(secondSession)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(roomJson("", "night", 5)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.roomName").value(username + "の部屋"))
+                    .andExpect(jsonPath("$.roomName").value(secondUser.getUsername() + "の部屋"))
                     .andExpect(jsonPath("$.backgroundUrl")
                             .value("work-space-pic/room-midnight-task.PNG"))
                     .andReturn();
@@ -136,7 +143,12 @@ class RoomApiTests {
             mockMvc.perform(get("/api/rooms/mine").session(session))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$[?(@.roomId == " + namedRoomId + ")]").exists())
-                    .andExpect(jsonPath("$[?(@.roomId == " + automaticNameRoomId + ")]").exists());
+                    .andExpect(jsonPath("$[?(@.roomId == " + automaticNameRoomId + ")]").doesNotExist());
+
+            mockMvc.perform(get("/api/rooms/mine").session(secondSession))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[?(@.roomId == " + automaticNameRoomId + ")]").exists())
+                    .andExpect(jsonPath("$[?(@.roomId == " + namedRoomId + ")]").doesNotExist());
 
             mockMvc.perform(get("/api/rooms/public").session(session))
                     .andExpect(status().isOk())
@@ -159,10 +171,13 @@ class RoomApiTests {
                     .andExpect(status().isBadRequest());
         } finally {
             createdRoomIds.forEach(roomId -> {
+                seatRepository.findByRoomId(roomId).forEach(seat ->
+                        seatAssignmentRepository.deleteBySeatId(seat.getSeatId()));
                 seatRepository.deleteByRoomId(roomId);
                 roomRepository.deleteById(roomId);
             });
             userRepository.deleteById(user.getUserId());
+            userRepository.deleteById(secondUser.getUserId());
         }
     }
 

@@ -10,6 +10,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import jp.workwith.seat.SeatService;
+import jp.workwith.seatassignment.SeatAssignmentService;
 import jp.workwith.user.User;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.user.UserService;
@@ -32,14 +33,17 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final UserService userService;
     private final SeatService seatService;
+    private final SeatAssignmentService seatAssignmentService;
 
     public RoomService(
             RoomRepository roomRepository,
             UserService userService,
-            SeatService seatService) {
+            SeatService seatService,
+            SeatAssignmentService seatAssignmentService) {
         this.roomRepository = roomRepository;
         this.userService = userService;
         this.seatService = seatService;
+        this.seatAssignmentService = seatAssignmentService;
     }
 
     @Transactional
@@ -80,6 +84,7 @@ public class RoomService {
 
             // 座席生成の例外は捕捉せず、部屋のINSERTと一緒にロールバックさせます。
             seatService.createForRoom(createdRoom.getRoomId(), createdRoom.getMaxSeats());
+            seatAssignmentService.autoAssignSeat(createdRoom.getRoomId(), userId);
             return createdRoom;
         }
 
@@ -104,6 +109,24 @@ public class RoomService {
         return roomRepository.findByRoomCode(normalizedCode)
                 .filter(room -> "private".equals(room.getRoomType()))
                 .orElseThrow(RoomNotFoundException::new);
+    }
+
+    @Transactional
+    public Room joinPublicRoom(long roomId, long userId) {
+        Room room = findById(roomId);
+        if (!"public".equals(room.getRoomType())) {
+            // private部屋の存在をroomIdだけから確認できる抜け道も作りません。
+            throw new RoomNotFoundException();
+        }
+        seatAssignmentService.autoAssignSeat(roomId, userId);
+        return room;
+    }
+
+    @Transactional
+    public Room joinPrivateRoom(String roomCode, long userId) {
+        Room room = findPrivateRoomByCode(roomCode);
+        seatAssignmentService.autoAssignSeat(room.getRoomId(), userId);
+        return room;
     }
 
     private String generateRoomCode() {

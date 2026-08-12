@@ -11,6 +11,8 @@ const avatarOptions = document.querySelectorAll(".avatar-option");
 const confirmAvatarButton = document.getElementById("confirm-avatar-button");
 const avatarError = document.getElementById("avatar-error");
 const logoutButton = document.getElementById("logout-button");
+const publicRoomError = document.getElementById("public-room-error");
+const joinRoomButton = joinRoomForm.querySelector("button[type='submit']");
 
 let selectedAvatar = null;
 
@@ -110,6 +112,7 @@ async function initializeLobby() {
     const user = await response.json();
     setAuthenticatedUser(user);
     currentUser.textContent = `${user.username}さん`;
+    await loadPublicRooms();
 
     if (!getSelectedAvatar()) {
       showAvatarModal();
@@ -121,6 +124,26 @@ async function initializeLobby() {
     closeAvatarModal();
     showView("login");
   }
+}
+
+/** ロビーの固定カードへ、DBに存在するpublic部屋の正式なroomIdを設定します。 */
+async function loadPublicRooms() {
+  const response = await fetch("/api/rooms/public", { credentials: "same-origin" });
+  if (response.status === 401) {
+    returnToLoginAfterRoomUnauthorized();
+    return;
+  }
+  if (!response.ok) throw new Error("パブリック部屋を取得できませんでした");
+
+  const rooms = await response.json();
+  roomButtons.forEach(function (button) {
+    const room = rooms.find(function (candidate) {
+      return candidate.theme === button.dataset.theme;
+    });
+    button.dataset.roomId = room ? String(room.roomId) : "";
+    button.dataset.roomName = room?.roomName || "";
+    button.disabled = !room;
+  });
 }
 
 async function logout() {
@@ -141,9 +164,41 @@ async function logout() {
  * 選択したテーマのパブリック部屋へ移動する仮処理です。
  * API導入後は、入室可能か確認してから移動する処理に置き換えます。
  */
-function enterRoom(theme) {
-  const query = new URLSearchParams({ theme: theme }).toString();
-  showView("room", true, query);
+async function enterRoom(button) {
+  const roomId = button.dataset.roomId;
+  if (!roomId) {
+    publicRoomError.textContent = "現在入室できる部屋がありません";
+    return;
+  }
+
+  publicRoomError.textContent = "";
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/join`, {
+      method: "POST",
+      credentials: "same-origin"
+    });
+    if (response.status === 401) {
+      returnToLoginAfterRoomUnauthorized();
+      return;
+    }
+    const responseBody = await response.json();
+    if (!response.ok) {
+      throw new Error(responseBody.message || "部屋に参加できませんでした");
+    }
+
+    clearCurrentPrivateRoom();
+    const query = new URLSearchParams({
+      roomId: responseBody.roomId,
+      theme: responseBody.theme,
+      roomName: responseBody.roomName
+    }).toString();
+    showView("room", true, query);
+  } catch (error) {
+    publicRoomError.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /** プライベート部屋作成画面へ移動します。 */
@@ -170,38 +225,38 @@ async function joinPrivateRoom() {
   roomIdInput.value = roomCode;
 
   try {
-    const response = await fetch(
-      `/api/rooms/code/${encodeURIComponent(roomCode)}`,
-      { credentials: "same-origin" }
-    );
+    joinRoomButton.disabled = true;
+    const response = await fetch("/api/rooms/private/join", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: roomCode })
+    });
 
     if (response.status === 401) {
       returnToLoginAfterRoomUnauthorized();
       return;
     }
-    if (response.status === 404) {
-      roomIdError.textContent = "その部屋IDは存在しません。";
-      roomIdInput.setAttribute("aria-invalid", "true");
-      return;
-    }
+    const responseBody = await response.json();
     if (!response.ok) {
-      roomIdError.textContent = "部屋に参加できませんでした";
+      roomIdError.textContent = responseBody.message || "部屋に参加できませんでした";
       roomIdInput.setAttribute("aria-invalid", "true");
       return;
     }
 
-    const privateRoom = await response.json();
-    enterPrivateRoom(privateRoom);
+    enterPrivateRoom(responseBody);
   } catch (error) {
     roomIdError.textContent = "部屋に参加できませんでした";
     roomIdInput.setAttribute("aria-invalid", "true");
+  } finally {
+    joinRoomButton.disabled = false;
   }
 }
 
 // HTMLには処理を直接書かず、ここで各ボタンにイベントを設定します。
 roomButtons.forEach(function (button) {
   button.addEventListener("click", function () {
-    enterRoom(button.dataset.theme);
+    enterRoom(button);
   });
 });
 

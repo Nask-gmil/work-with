@@ -72,6 +72,30 @@ public class SeatAssignmentRepository {
                 roomId);
     }
 
+    /** USERSを一度だけJOINし、部屋画面に必要な着席ユーザー情報を返します。 */
+    public List<RoomParticipant> findParticipantsByRoomId(long roomId) {
+        return jdbcTemplate.query(
+                """
+                SELECT sa.seat_id, sa.user_id, u.username, u.avatar_type,
+                       sa.status, sa.work_content, sa.started_at, sa.last_heartbeat_at
+                FROM SEAT_ASSIGNMENTS sa
+                JOIN SEATS s ON s.seat_id = sa.seat_id
+                JOIN USERS u ON u.user_id = sa.user_id
+                WHERE s.room_id = ?
+                ORDER BY s.seat_number
+                """,
+                (resultSet, rowNumber) -> new RoomParticipant(
+                        resultSet.getLong("seat_id"),
+                        resultSet.getLong("user_id"),
+                        resultSet.getString("username"),
+                        resultSet.getString("avatar_type"),
+                        resultSet.getString("status"),
+                        resultSet.getString("work_content"),
+                        toLocalDateTime(resultSet.getTimestamp("started_at")),
+                        toLocalDateTime(resultSet.getTimestamp("last_heartbeat_at"))),
+                roomId);
+    }
+
     public boolean deleteBySeatId(long seatId) {
         return jdbcTemplate.update(
                 "DELETE FROM SEAT_ASSIGNMENTS WHERE seat_id = ?", seatId) == 1;

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jp.workwith.room.RoomRepository;
 import jp.workwith.seat.SeatRepository;
+import jp.workwith.seatassignment.SeatAssignmentRepository;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserService;
@@ -36,6 +37,7 @@ class SeatApiTests {
     @Autowired private UserRepository userRepository;
     @Autowired private RoomRepository roomRepository;
     @Autowired private SeatRepository seatRepository;
+    @Autowired private SeatAssignmentRepository seatAssignmentRepository;
 
     @Test
     void createsMaxSeatsAndReturnsThemInOrder() throws Exception {
@@ -72,6 +74,8 @@ class SeatApiTests {
                     .andExpect(status().isUnauthorized());
         } finally {
             if (roomId != null) {
+                seatRepository.findByRoomId(roomId).forEach(seat ->
+                        seatAssignmentRepository.deleteBySeatId(seat.getSeatId()));
                 seatRepository.deleteByRoomId(roomId);
                 roomRepository.deleteById(roomId);
             }

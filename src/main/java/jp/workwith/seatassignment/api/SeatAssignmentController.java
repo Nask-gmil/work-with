@@ -35,7 +35,7 @@ public class SeatAssignmentController {
         try {
             roomService.findById(roomId);
             List<SeatAssignmentResponse> response =
-                    seatAssignmentService.findByRoomId(roomId).stream()
+                    seatAssignmentService.findParticipantsByRoomId(roomId).stream()
                             .map(SeatAssignmentResponse::from)
                             .toList();
             return ResponseEntity.ok(response);

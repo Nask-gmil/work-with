@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
+import jp.workwith.seatassignment.AlreadyAssignedToAnotherRoomException;
+import jp.workwith.seatassignment.RoomFullException;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.user.UserSession;
 import jp.workwith.user.api.ApiErrorResponse;
@@ -51,6 +53,9 @@ public class RoomController {
         } catch (UserNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiErrorResponse("ログインが必要です。"));
+        } catch (RoomFullException | AlreadyAssignedToAnotherRoomException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiErrorResponse(exception.getMessage()));
         } catch (DataAccessException | IllegalStateException exception) {
             return serverError();
         }
@@ -95,6 +100,45 @@ public class RoomController {
             return ResponseEntity.ok(RoomResponse.from(roomService.findById(roomId)));
         } catch (RoomNotFoundException exception) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
+    /** 公開されているpublic部屋だけへ、ログイン中の本人を自動着席させます。 */
+    @PostMapping("/{roomId}/join")
+    public ResponseEntity<?> joinPublicRoom(
+            @PathVariable long roomId,
+            HttpServletRequest request) {
+        try {
+            Room room = roomService.joinPublicRoom(roomId, getLoginUserId(request));
+            return ResponseEntity.ok(RoomResponse.from(room));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (RoomFullException | AlreadyAssignedToAnotherRoomException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (DataAccessException exception) {
+            return serverError();
+        }
+    }
+
+    /** room_codeを確認してから、ログイン中の本人をprivate部屋へ自動着席させます。 */
+    @PostMapping("/private/join")
+    public ResponseEntity<?> joinPrivateRoom(
+            @RequestBody PrivateRoomJoinRequest requestBody,
+            HttpServletRequest request) {
+        try {
+            Room room = roomService.joinPrivateRoom(
+                    requestBody.getRoomCode(), getLoginUserId(request));
+            return ResponseEntity.ok(RoomResponse.from(room));
+        } catch (RoomNotFoundException exception) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (RoomFullException | AlreadyAssignedToAnotherRoomException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (DataAccessException exception) {
             return serverError();

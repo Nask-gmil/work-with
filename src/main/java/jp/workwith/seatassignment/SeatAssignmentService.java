@@ -9,7 +9,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jp.workwith.room.RoomService;
+import jp.workwith.room.RoomNotFoundException;
+import jp.workwith.room.RoomRepository;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
 
@@ -19,25 +20,29 @@ public class SeatAssignmentService {
 
     private final SeatAssignmentRepository seatAssignmentRepository;
     private final SeatRepository seatRepository;
-    private final RoomService roomService;
+    private final RoomRepository roomRepository;
 
     public SeatAssignmentService(
             SeatAssignmentRepository seatAssignmentRepository,
             SeatRepository seatRepository,
-            RoomService roomService) {
+            RoomRepository roomRepository) {
         this.seatAssignmentRepository = seatAssignmentRepository;
         this.seatRepository = seatRepository;
-        this.roomService = roomService;
+        this.roomRepository = roomRepository;
     }
 
     public List<SeatAssignment> findByRoomId(long roomId) {
         return seatAssignmentRepository.findByRoomId(roomId);
     }
 
+    public List<RoomParticipant> findParticipantsByRoomId(long roomId) {
+        return seatAssignmentRepository.findParticipantsByRoomId(roomId);
+    }
+
     /** 指定部屋の座席番号が最も小さい空席へ、ユーザーを自動で割り当てます。 */
     @Transactional
     public SeatAssignment autoAssignSeat(long roomId, long userId) {
-        roomService.findById(roomId);
+        roomRepository.findById(roomId).orElseThrow(RoomNotFoundException::new);
 
         Optional<SeatAssignment> existingAssignment =
                 seatAssignmentRepository.findByUserId(userId);

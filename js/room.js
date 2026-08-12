@@ -145,6 +145,7 @@ function getRoomInfo(queryString) {
   const params = new URLSearchParams(queryString);
   const roomId = params.get("roomId");
   const requestedTheme = params.get("theme");
+  const requestedRoomName = params.get("roomName");
   const savedPrivateRoom = roomId ? loadCurrentPrivateRoom() : null;
   const privateRoom = savedPrivateRoom
     && String(savedPrivateRoom.roomId) === roomId
@@ -164,15 +165,21 @@ function getRoomInfo(queryString) {
 
   if (roomThemeNames[requestedTheme]) {
     return {
-      roomId: null,
-      roomName: roomThemeNames[requestedTheme],
+      roomId: roomId ? Number(roomId) : null,
+      roomName: requestedRoomName || roomThemeNames[requestedTheme],
       theme: requestedTheme,
       isCreator: false,
       isPrivate: false
     };
   }
 
-  return { roomId: null, roomName: "部屋", theme: "focus", isCreator: false, isPrivate: false };
+  return {
+    roomId: roomId ? Number(roomId) : null,
+    roomName: "部屋",
+    theme: "focus",
+    isCreator: false,
+    isPrivate: false
+  };
 }
 
 /** 現在開いている保存済みプライベート部屋を取得します。 */
@@ -247,39 +254,65 @@ function saveRoomTheme() {
   closeRoomSettingsModal();
 }
 
-/** UI確認用の入室者データを返します。後からAPI取得へ置き換えます。 */
-function getParticipants(roomInfo) {
-  const username = getWorkspaceUsername();
-  const myAvatar = normalizeAvatarType(getAuthenticatedUser()?.avatarType) || "male_a";
-  // 全テーマ共通の10席です。アバター位置はこのx・yだけで調整できます。
-  const seatPositions = [
-    { seatId: "upper-1", x: 26, y: 31.6 },
-    { seatId: "upper-2", x: 37, y: 35 },
-    { seatId: "upper-3", x: 48, y: 38 },
-    { seatId: "upper-4", x: 58.8, y: 40.8 },
-    { seatId: "upper-5", x: 69, y: 44 },
-    { seatId: "lower-1", x: 22, y: 56 },
-    { seatId: "lower-2", x: 32, y: 59 },
-    { seatId: "lower-3", x: 43, y: 62 },
-    { seatId: "lower-4", x: 54, y: 65 },
-    { seatId: "lower-5", x: 65, y: 69 }
-  ];
-  const participants = [
-    { id: "me", name: username, avatarType: myAvatar, status: myStatus, elapsedTime: sideElapsedTime.textContent, memo: myWorkContent, joinOrder: 0, isMe: true },
-    { id: "seat-upper-2", name: "上段2", avatarType: "male_b", status: "working", elapsedTime: "35分", memo: "Java学習", joinOrder: 1 },
-    { id: "seat-upper-3", name: "上段3", avatarType: "female_a", status: "break", elapsedTime: "1時間05分", memo: "", joinOrder: 2 },
-    { id: "seat-upper-4", name: "上段4", avatarType: "female_b", status: "working", elapsedTime: "48分", memo: "資料作成", joinOrder: 3 },
-    { id: "seat-upper-5", name: "上段5", avatarType: "male_a", status: "working", elapsedTime: "1時間20分", memo: "ポートフォリオ制作", joinOrder: 4 },
-    { id: "seat-lower-1", name: "下段1", avatarType: "female_b", status: "working", elapsedTime: "22分", memo: "デザイン確認", joinOrder: 5 },
-    { id: "seat-lower-2", name: "下段2", avatarType: "male_b", status: "break", elapsedTime: "50分", memo: "休憩中", joinOrder: 6 },
-    { id: "seat-lower-3", name: "下段3", avatarType: "female_a", status: "working", elapsedTime: "18分", memo: "資格勉強", joinOrder: 7 },
-    { id: "seat-lower-4", name: "下段4", avatarType: "male_a", status: "working", elapsedTime: "42分", memo: "コーディング", joinOrder: 8 },
-    { id: "seat-lower-5", name: "下段5", avatarType: "female_b", status: "working", elapsedTime: "27分", memo: "読書", joinOrder: 9 }
-  ];
-  const positionedParticipants = participants.map(function (participant, index) {
-    return { ...participant, ...seatPositions[index] };
+/** API失敗を共通処理し、認証切れならログイン画面へ戻します。 */
+async function readRoomApi(response, fallbackMessage) {
+  if (response.status === 401) {
+    clearAuthenticatedUser();
+    showView("login");
+    throw new Error("ログインが必要です");
+  }
+  if (!response.ok) {
+    const errorBody = await response.json().catch(function () { return null; });
+    throw new Error(errorBody?.message || fallbackMessage);
+  }
+  return response.json();
+}
+
+/** SEATSとSEAT_ASSIGNMENTSをseatIdで結び、public/private共通の参加者を作ります。 */
+async function loadRoomParticipants(roomId) {
+  if (!roomId) return [];
+
+  const [seatsResponse, assignmentsResponse] = await Promise.all([
+    fetch(`/api/rooms/${encodeURIComponent(roomId)}/seats`),
+    fetch(`/api/rooms/${encodeURIComponent(roomId)}/seat-assignments`)
+  ]);
+  const seats = await readRoomApi(seatsResponse, "座席情報を取得できませんでした");
+  const assignments = await readRoomApi(
+    assignmentsResponse,
+    "入室者情報を取得できませんでした"
+  );
+  const seatMap = new Map(seats.map(function (seat) {
+    return [String(seat.seatId), seat];
+  }));
+  const loginUserId = Number(getAuthenticatedUser()?.userId);
+
+  return assignments.flatMap(function (assignment, index) {
+    const seat = seatMap.get(String(assignment.seatId));
+    if (!seat) return [];
+    return [{
+      id: String(assignment.userId),
+      name: assignment.username,
+      avatarType: normalizeAvatarType(assignment.avatarType) || "male_a",
+      status: assignment.status,
+      elapsedTime: formatElapsedTime(assignment.startedAt),
+      memo: assignment.workContent || "",
+      joinOrder: index,
+      isMe: Number(assignment.userId) === loginUserId,
+      seatId: assignment.seatId,
+      seatNumber: seat.seatNumber,
+      x: seat.posX,
+      y: seat.posY
+    }];
   });
-  return positionedParticipants;
+}
+
+function formatElapsedTime(startedAt) {
+  const startedTime = Date.parse(startedAt);
+  if (!Number.isFinite(startedTime)) return "0分";
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - startedTime) / 60000));
+  const hours = Math.floor(elapsedMinutes / 60);
+  const minutes = elapsedMinutes % 60;
+  return hours > 0 ? `${hours}時間${minutes}分` : `${minutes}分`;
 }
 
 /** アバターのホバー情報を最前面のUIレイヤーへ表示します。 */
@@ -336,7 +369,9 @@ function renderParticipants(participants) {
     participantElement.addEventListener("click", function () {
       if (!participant.isMe) selectChatTarget(participant.id);
     });
-    const targetLayer = participant.seatId.startsWith("upper-")
+    participantElement.dataset.userId = participant.id;
+    participantElement.dataset.seatId = String(participant.seatId);
+    const targetLayer = participant.seatNumber <= 5
       ? upperParticipantLayer
       : lowerParticipantLayer;
     targetLayer.appendChild(participantElement);
@@ -463,8 +498,7 @@ function sendChatMessage() {
 }
 
 /** 部屋情報とレイヤー画像を画面へ反映します。 */
-function renderWorkspace(roomInfo) {
-  const participants = getParticipants(roomInfo);
+function renderWorkspace(roomInfo, participants = currentParticipants) {
   currentParticipants = participants;
   workspaceRoomName.textContent = roomInfo.roomName;
   workspaceParticipantCount.textContent = `入室者 ${participants.length}人`;
@@ -488,7 +522,7 @@ function setMyStatus(status) {
     button.classList.toggle("is-active", button.dataset.status === status);
   });
 
-  if (currentRoomInfo) renderParticipants(getParticipants(currentRoomInfo));
+  if (currentRoomInfo) renderParticipants(currentParticipants);
 }
 
 /** 既存のアバター選択モーダルを部屋画面から開きます。 */
@@ -497,7 +531,7 @@ function openAvatarModal() {
 }
 
 /** URLに対応する部屋を初期表示します。 */
-function initializeRoom(queryString) {
+async function initializeRoom(queryString) {
   currentRoomInfo = getRoomInfo(queryString);
   myStatus = "working";
   roomEnteredAt = Date.now();
@@ -506,7 +540,16 @@ function initializeRoom(queryString) {
   switchSideTab("self");
   updateElapsedTime();
   setMyStatus(myStatus);
-  renderWorkspace(currentRoomInfo);
+  currentParticipants = [];
+  renderWorkspace(currentRoomInfo, currentParticipants);
+  try {
+    currentParticipants = await loadRoomParticipants(currentRoomInfo.roomId);
+    renderWorkspace(currentRoomInfo, currentParticipants);
+  } catch (error) {
+    currentParticipants = [];
+    renderWorkspace(currentRoomInfo, currentParticipants);
+    console.error(error);
+  }
 }
 
 changeAvatarButton.addEventListener("click", openAvatarModal);
@@ -529,7 +572,7 @@ sideTabs.forEach(function (tab) {
 
 myWorkContentInput.addEventListener("input", function () {
   saveWorkContent(myWorkContentInput.value);
-  if (currentRoomInfo) renderParticipants(getParticipants(currentRoomInfo));
+  if (currentRoomInfo) renderParticipants(currentParticipants);
 });
 
 privateMemoInput.addEventListener("input", function () {
@@ -564,7 +607,13 @@ roomSettingsOverlay.addEventListener("click", function (event) {
 });
 
 document.addEventListener("avatarupdated", function () {
-  if (currentRoomInfo) renderParticipants(getParticipants(currentRoomInfo));
+  if (!currentRoomInfo?.roomId) return;
+  loadRoomParticipants(currentRoomInfo.roomId)
+    .then(function (participants) {
+      currentParticipants = participants;
+      renderWorkspace(currentRoomInfo, currentParticipants);
+    })
+    .catch(console.error);
 });
 
 document.addEventListener("viewchange", function (event) {
@@ -576,10 +625,7 @@ if (!document.getElementById("room-view").hidden) {
   initializeRoom(getQueryFromUrl());
 }
 
-// サーバー時刻は使わず、UI確認用として1分ごとに表示を更新します。
+// 経過時間の表示だけを1分ごとに更新します。APIの定期ポーリングは行いません。
 window.setInterval(function () {
   updateElapsedTime();
-  if (currentRoomInfo && !document.getElementById("room-view").hidden) {
-    renderParticipants(getParticipants(currentRoomInfo));
-  }
 }, 60000);
