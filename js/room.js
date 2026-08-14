@@ -671,7 +671,7 @@ function connectRoomWebSocket(roomId) {
   roomWebSocketHasConnected = false;
   const client = new window.StompJs.Client({
     brokerURL: `${socketProtocol}//${window.location.host}/ws`,
-    reconnectDelay: 1000,
+    reconnectDelay: 5000,
     reconnectTimeMode: window.StompJs.ReconnectionTimeMode?.EXPONENTIAL,
     maxReconnectDelay: 30000,
     onConnect: function () {
