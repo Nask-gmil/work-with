@@ -22,6 +22,9 @@ WORKDIR /app
 
 COPY --from=build /app/target/work-with-0.0.1-SNAPSHOT.jar app.jar
 
+# SQLiteがデータベースファイルを作成できるよう、先にdbフォルダを用意します。
+RUN mkdir -p /app/db
+
 # Renderが割り当てるPORT環境変数をSpring Bootに渡す
 ENV PORT=8080
 EXPOSE 8080
