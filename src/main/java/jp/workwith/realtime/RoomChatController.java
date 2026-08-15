@@ -22,12 +22,15 @@ public class RoomChatController {
     private static final Logger LOGGER = LoggerFactory.getLogger(RoomChatController.class);
     private final RoomChatService roomChatService;
     private final RoomRealtimeNotifier realtimeNotifier;
+    private final ChatRateLimitService rateLimitService;
 
     public RoomChatController(
             RoomChatService roomChatService,
-            RoomRealtimeNotifier realtimeNotifier) {
+            RoomRealtimeNotifier realtimeNotifier,
+            ChatRateLimitService rateLimitService) {
         this.roomChatService = roomChatService;
         this.realtimeNotifier = realtimeNotifier;
+        this.rateLimitService = rateLimitService;
     }
 
     @MessageMapping("/room/{roomId}/chat")
@@ -43,10 +46,25 @@ public class RoomChatController {
             return;
         }
 
+        long userId = number.longValue();
+        boolean dm = request != null && request.targetUserId() != null;
+        ChatRateLimitService.RateLimitResult rateLimit = dm
+                ? rateLimitService.recordDmAttempt(userId)
+                : rateLimitService.recordChatAttempt(userId);
+        if (!rateLimit.allowed()) {
+            String type = dm ? "dm-rate-limit" : "chat-rate-limit";
+            String message = dm
+                    ? "DMの送信回数が多すぎます。少し時間を空けてから再度お試しください。"
+                    : "チャットの送信回数が多すぎます。少し時間を空けてから再度お試しください。";
+            realtimeNotifier.notifyChatError(
+                    userId, new ChatErrorMessage(type, message, rateLimit.retryAfterSeconds()));
+            return;
+        }
+
         try {
             RoomChatMessage message = roomChatService.createMessage(
                     roomId,
-                    number.longValue(),
+                    userId,
                     request == null ? null : request.targetUserId(),
                     request == null ? null : request.content());
             if (message.targetUserId() == null) {

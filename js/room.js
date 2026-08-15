@@ -85,6 +85,7 @@ let roomStompClient = null;
 let roomSubscription = null;
 let publicChatSubscription = null;
 let privateChatSubscription = null;
+let chatErrorSubscription = null;
 let intentionalRoomWebSocketDisconnect = true;
 let roomWebSocketHasConnected = false;
 let roomParticipantsRefreshInProgress = false;
@@ -645,6 +646,14 @@ function disconnectRoomWebSocket() {
     }
     privateChatSubscription = null;
   }
+  if (chatErrorSubscription) {
+    try {
+      chatErrorSubscription.unsubscribe();
+    } catch (error) {
+      console.error("チャットエラー購読の解除に失敗しました", error);
+    }
+    chatErrorSubscription = null;
+  }
   if (!roomStompClient) return;
   const client = roomStompClient;
   roomStompClient = null;
@@ -696,6 +705,14 @@ function connectRoomWebSocket(roomId) {
         }
         privateChatSubscription = null;
       }
+      if (chatErrorSubscription) {
+        try {
+          chatErrorSubscription.unsubscribe();
+        } catch (error) {
+          console.warn("古いチャットエラー購読の解除に失敗しました", error);
+        }
+        chatErrorSubscription = null;
+      }
       if (publicChatSubscription) {
         try {
           publicChatSubscription.unsubscribe();
@@ -746,6 +763,18 @@ function connectRoomWebSocket(roomId) {
           }
         }
       );
+      chatErrorSubscription = client.subscribe(
+        "/user/queue/chat-errors",
+        function (message) {
+          try {
+            const event = JSON.parse(message.body);
+            chatError.textContent = event?.message
+              || "送信回数が多すぎます。少し時間を空けてください。";
+          } catch (error) {
+            console.error("チャット送信エラー通知の解析に失敗しました", error);
+          }
+        }
+      );
       console.log(roomWebSocketHasConnected
         ? `Resubscribed to ${destination}`
         : `Subscribed to ${destination}`);
@@ -766,6 +795,7 @@ function connectRoomWebSocket(roomId) {
         roomSubscription = null;
         publicChatSubscription = null;
         privateChatSubscription = null;
+        chatErrorSubscription = null;
         console.warn("WebSocket disconnected. Reconnecting WebSocket...");
       }
     }

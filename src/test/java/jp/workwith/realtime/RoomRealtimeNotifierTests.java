@@ -116,4 +116,16 @@ class RoomRealtimeNotifierTests {
         verify(messagingTemplate).convertAndSendToUser(
                 "13", "/queue/private-chat", message);
     }
+
+    @Test
+    void sendsChatErrorOnlyToTheSendingUserQueue() {
+        SimpMessagingTemplate messagingTemplate = org.mockito.Mockito.mock(
+                SimpMessagingTemplate.class);
+        RoomRealtimeNotifier notifier = new RoomRealtimeNotifier(messagingTemplate);
+        ChatErrorMessage error = new ChatErrorMessage("chat-rate-limit", "wait", 20);
+
+        notifier.notifyChatError(12L, error);
+
+        verify(messagingTemplate).convertAndSendToUser("12", "/queue/chat-errors", error);
+    }
 }

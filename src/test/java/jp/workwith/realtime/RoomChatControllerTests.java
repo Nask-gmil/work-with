@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -19,7 +21,16 @@ import jp.workwith.user.UserSession;
 class RoomChatControllerTests {
     private final RoomChatService service = mock(RoomChatService.class);
     private final RoomRealtimeNotifier notifier = mock(RoomRealtimeNotifier.class);
-    private final RoomChatController controller = new RoomChatController(service, notifier);
+    private final ChatRateLimitService rateLimitService = mock(ChatRateLimitService.class);
+    private final RoomChatController controller = new RoomChatController(
+            service, notifier, rateLimitService);
+
+    RoomChatControllerTests() {
+        when(rateLimitService.recordChatAttempt(any(Long.class)))
+                .thenReturn(new ChatRateLimitService.RateLimitResult(true, 0));
+        when(rateLimitService.recordDmAttempt(any(Long.class)))
+                .thenReturn(new ChatRateLimitService.RateLimitResult(true, 0));
+    }
 
     @Test
     void publishesUsingTheSessionUser() {
@@ -67,6 +78,50 @@ class RoomChatControllerTests {
 
         verify(notifier).notifyPrivateChatMessage(message);
         verify(notifier, never()).notifyChatMessage(any(), any());
+    }
+
+    @Test
+    void stopsChatBeforeValidationSaveAndBroadcastWhenRateLimitIsExceeded() {
+        when(rateLimitService.recordChatAttempt(12L))
+                .thenReturn(new ChatRateLimitService.RateLimitResult(false, 42));
+
+        controller.sendChatMessage(5L, new RoomChatRequest(null, "hello"), authenticatedHeaders(12L));
+
+        verify(service, never()).createMessage(any(Long.class), any(Long.class), any(), any());
+        verify(notifier, never()).notifyChatMessage(any(), any());
+        verify(notifier).notifyChatError(12L,
+                new ChatErrorMessage("chat-rate-limit",
+                        "チャットの送信回数が多すぎます。少し時間を空けてから再度お試しください。", 42));
+    }
+
+    @Test
+    void stopsDmBeforeValidationSaveAndDeliveryWhenRateLimitIsExceeded() {
+        when(rateLimitService.recordDmAttempt(12L))
+                .thenReturn(new ChatRateLimitService.RateLimitResult(false, 30));
+
+        controller.sendChatMessage(5L, new RoomChatRequest(13L, "secret"), authenticatedHeaders(12L));
+
+        verify(service, never()).createMessage(any(Long.class), any(Long.class), any(), any());
+        verify(notifier, never()).notifyPrivateChatMessage(any());
+        verify(notifier).notifyChatError(12L,
+                new ChatErrorMessage("dm-rate-limit",
+                        "DMの送信回数が多すぎます。少し時間を空けてから再度お試しください。", 30));
+    }
+
+    @Test
+    void invalidChatAttemptStillConsumesTheSharedGlobalChatLimit() {
+        ChatRateLimitService realLimiter = new ChatRateLimitService(
+                1, Duration.ofMinutes(1), 15, Duration.ofMinutes(1), Clock.systemUTC());
+        RoomChatController limitedController = new RoomChatController(service, notifier, realLimiter);
+        when(service.createMessage(5L, 12L, null, ""))
+                .thenThrow(new IllegalArgumentException("content"));
+
+        limitedController.sendChatMessage(5L, new RoomChatRequest(null, ""), authenticatedHeaders(12L));
+        limitedController.sendChatMessage(8L, new RoomChatRequest(null, "valid"), authenticatedHeaders(12L));
+
+        verify(service).createMessage(5L, 12L, null, "");
+        verify(service, never()).createMessage(8L, 12L, null, "valid");
+        verify(notifier).notifyChatError(any(Long.class), any(ChatErrorMessage.class));
     }
 
     private SimpMessageHeaderAccessor authenticatedHeaders(long userId) {

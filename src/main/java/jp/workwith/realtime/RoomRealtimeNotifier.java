@@ -70,4 +70,9 @@ public class RoomRealtimeNotifier {
         messagingTemplate.convertAndSendToUser(
                 Long.toString(message.targetUserId()), "/queue/private-chat", message);
     }
+
+    public void notifyChatError(long userId, ChatErrorMessage error) {
+        messagingTemplate.convertAndSendToUser(
+                Long.toString(userId), "/queue/chat-errors", error);
+    }
 }
