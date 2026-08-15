@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS ROOMS (
     background_url TEXT,
     max_seats INTEGER NOT NULL,
     created_by INTEGER,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now', 'localtime')),
     CHECK (room_type IN ('private', 'public')),
     FOREIGN KEY (created_by) REFERENCES USERS (user_id)
 );
@@ -57,3 +58,9 @@ CREATE TABLE IF NOT EXISTS CHAT_MESSAGES (
     FOREIGN KEY (user_id) REFERENCES USERS (user_id),
     FOREIGN KEY (target_user_id) REFERENCES USERS (user_id)
 );
+
+CREATE INDEX IF NOT EXISTS ix_rooms_private_created_at
+ON ROOMS (room_type, created_at);
+
+CREATE INDEX IF NOT EXISTS ix_chat_messages_sent_at
+ON CHAT_MESSAGES (sent_at);

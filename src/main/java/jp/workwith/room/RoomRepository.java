@@ -42,8 +42,9 @@ public class RoomRepository {
     public Room create(Room room) {
         String sql = """
                 INSERT INTO ROOMS
-                    (room_code, room_type, room_name, theme, background_url, max_seats, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (room_code, room_type, room_name, theme, background_url,
+                     max_seats, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
                 """;
         KeyHolder keyHolder = new GeneratedKeyHolder();
 

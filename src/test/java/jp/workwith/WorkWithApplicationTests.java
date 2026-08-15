@@ -45,4 +45,17 @@ class WorkWithApplicationTests {
 
         assertThat(foreignKeysEnabled).isEqualTo(1);
     }
+
+    /** 既存DBにもprivate部屋の保存期限判定用列が追加されることを確認します。 */
+    @Test
+    void roomsHaveCreatedAtForRetention() {
+        List<String> roomColumns = jdbcTemplate.query(
+                "PRAGMA table_info(ROOMS)",
+                (resultSet, rowNumber) -> resultSet.getString("name"));
+
+        assertThat(roomColumns).contains("created_at");
+        Integer roomsWithoutCreatedAt = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM ROOMS WHERE created_at IS NULL", Integer.class);
+        assertThat(roomsWithoutCreatedAt).isZero();
+    }
 }
