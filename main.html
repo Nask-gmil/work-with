@@ -1,19 +1,125 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ワークwith</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/top.css">
   <link rel="stylesheet" href="css/login.css">
   <link rel="stylesheet" href="css/register.css">
   <link rel="stylesheet" href="css/lobby.css">
   <link rel="stylesheet" href="css/create-room.css">
   <link rel="stylesheet" href="css/room.css">
 </head>
+
 <body>
   <!-- SPAでは各画面をviewとして用意し、JavaScriptで表示を切り替えます。 -->
-  <main id="login-view" class="app-view login-page" data-view="login">
+  <main id="top-view" class="app-view top-page" data-view="top">
+    <header class="top-header">
+      <div class="top-brand">
+        <h1>ワーク<span>with</span></h1>
+        <p>オンライン共同作業スペース</p>
+      </div>
+      <nav class="top-header-actions" aria-label="アカウントメニュー">
+        <a class="top-button top-button-secondary" href="#login" data-route="login">ログイン</a>
+        <a class="top-button top-button-primary" href="#register" data-route="register">新規登録</a>
+      </nav>
+    </header>
+
+    <div class="top-workspace-layout">
+      <section class="top-room-card" aria-label="ワークスペースのイメージ">
+        <div class="top-room-scene">
+          <img class="top-room-layer top-room-background" src="work-space-pic/room-forcus-task.png" alt="">
+          <img class="top-room-layer top-upper-desk-layer" src="work-space-pic/upper-desk.png" alt="">
+          <img class="top-room-layer top-lower-desk-layer" src="work-space-pic/lower-desk.png" alt="">
+
+          <button type="button" class="top-avatar top-avatar-1" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-man-A.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>あおい</strong>作業中・Java学習</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-2" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-woman-A.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>ゆうき</strong>作業中・資料作成</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-3" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-man-B.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>みさき</strong>休憩中</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-4" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-woman-B.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>れん</strong>作業中・デザイン</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-5" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-woman-A.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>さくら</strong>作業中・読書</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-6" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-man-A.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>かい</strong>休憩中</span>
+          </button>
+          <button type="button" class="top-avatar top-avatar-7" aria-expanded="false">
+            <img class="top-avatar-figure" src="work-space-pic/avatar-woman-B.png" alt="">
+            <span class="top-avatar-tooltip" role="tooltip"><strong>ひなた</strong>作業中・資格勉強</span>
+          </button>
+
+          <div class="top-scene-actions">
+            <a href="#login" data-route="login">ログイン</a>
+            <a href="#register" data-route="register">新規登録</a>
+          </div>
+        </div>
+      </section>
+
+      <aside class="top-side-card" aria-label="ワークwithの紹介">
+        <div class="top-tabs" role="tablist" aria-label="紹介メニュー">
+          <button id="top-about-tab" class="top-tab is-active" type="button" role="tab" aria-selected="true"
+            aria-controls="top-about-panel">ワークwith</button>
+          <button id="top-features-tab" class="top-tab" type="button" role="tab" aria-selected="false"
+            aria-controls="top-features-panel" tabindex="-1">できること</button>
+        </div>
+        <div class="top-panel-area">
+          <section id="top-about-panel" class="top-tab-panel top-about-panel" role="tabpanel"
+            aria-labelledby="top-about-tab">
+            <p class="top-eyebrow">FOCUS, TOGETHER.</p>
+            <h2>一緒の空間で、<br>ひとりじゃない <br>作業時間を。</h2>
+            <p>アバターと入室して、仲間の気配を感じながら集中できる、もくもく作業のためのバーチャルワークスペースです。</p>
+            <a class="top-start-link" href="#register" data-route="register">作業をはじめる <span
+                aria-hidden="true">→</span></a>
+          </section>
+          <section id="top-features-panel" class="top-tab-panel" role="tabpanel" aria-labelledby="top-features-tab"
+            hidden>
+            <div class="top-feature-message"><span>👤</span>
+              <div><strong>アバターで入室</strong>
+                <p>好きなアバターで同じ部屋に入室</p>
+              </div>
+            </div>
+            <div class="top-feature-message is-reply"><span>🟢</span>
+              <div><strong>状態を共有</strong>
+                <p>作業中・休憩中をワンタップで共有</p>
+              </div>
+            </div>
+            <div class="top-feature-message"><span>💬</span>
+              <div><strong>チャット</strong>
+                <p>全体・個別にひとこと送信</p>
+              </div>
+            </div>
+            <div class="top-feature-message is-reply"><span>🔒</span>
+              <div><strong>プライベート部屋</strong>
+                <p>自分だけの部屋を作成・招待</p>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="top-chat-decoration" aria-label="ログイン後に利用できるチャット入力欄">
+          <input type="text" readonly placeholder="ログインすると使えます" aria-label="メッセージ">
+          <button type="button" disabled aria-label="送信できません">↑</button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <main id="login-view" class="app-view login-page" data-view="login" hidden>
     <section class="login-card" aria-labelledby="login-title">
       <header class="login-header">
         <h1 id="login-title">ワーク<span>with</span></h1>
@@ -24,27 +130,13 @@
       <form id="login-form" class="login-form">
         <div class="form-field">
           <label for="username">ユーザーネーム</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="例:yamada_taro"
-            autocomplete="username"
-            required
-          >
+          <input type="text" id="username" name="username" placeholder="例:yamada_taro" autocomplete="username" required>
         </div>
 
         <div class="form-field">
           <label for="password">パスワード</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="8文字以上"
-            autocomplete="current-password"
-            minlength="8"
-            required
-          >
+          <input type="password" id="password" name="password" placeholder="8文字以上" autocomplete="current-password"
+            minlength="8" required>
         </div>
 
         <button type="submit" class="login-button">ログイン</button>
@@ -68,14 +160,8 @@
       <form id="register-form" class="register-form" novalidate>
         <div class="register-field">
           <label for="register-username">ユーザーネーム</label>
-          <input
-            type="text"
-            id="register-username"
-            name="username"
-            placeholder="例:yamada_taro"
-            autocomplete="username"
-            aria-describedby="username-help username-error"
-          >
+          <input type="text" id="register-username" name="username" placeholder="例:yamada_taro" autocomplete="username"
+            aria-describedby="username-help username-error">
           <p id="username-help" class="field-help">
             半角英数字、他の人と重複しない名前にしてください
           </p>
@@ -84,27 +170,15 @@
 
         <div class="register-field">
           <label for="register-password">パスワード</label>
-          <input
-            type="password"
-            id="register-password"
-            name="password"
-            placeholder="8文字以上"
-            autocomplete="new-password"
-            aria-describedby="password-error"
-          >
+          <input type="password" id="register-password" name="password" placeholder="8文字以上" autocomplete="new-password"
+            aria-describedby="password-error">
           <p id="password-error" class="register-error" aria-live="polite"></p>
         </div>
 
         <div class="register-field">
           <label for="confirm-password">パスワード（確認）</label>
-          <input
-            type="password"
-            id="confirm-password"
-            name="confirmPassword"
-            placeholder="もう一度入力"
-            autocomplete="new-password"
-            aria-describedby="confirm-password-error"
-          >
+          <input type="password" id="confirm-password" name="confirmPassword" placeholder="もう一度入力"
+            autocomplete="new-password" aria-describedby="confirm-password-error">
           <p id="confirm-password-error" class="register-error" aria-live="polite"></p>
         </div>
 
@@ -183,15 +257,8 @@
         <form id="join-room-form" novalidate>
           <div class="room-id-field">
             <label for="room-id" class="visually-hidden">部屋ID</label>
-            <input
-              type="text"
-              id="room-id"
-              name="roomId"
-              placeholder="例: A7K9PX"
-              maxlength="6"
-              autocomplete="off"
-              aria-describedby="room-id-error"
-            >
+            <input type="text" id="room-id" name="roomId" placeholder="例: A7K9PX" maxlength="6" autocomplete="off"
+              aria-describedby="room-id-error">
             <p id="room-id-error" class="error-message" aria-live="polite"></p>
           </div>
           <button type="submit" class="join-button">入室</button>
@@ -203,13 +270,8 @@
 
   <!-- ロビーと部屋の両方から再利用するアバター選択モーダルです。 -->
   <div id="avatar-modal-overlay" class="avatar-modal-overlay" hidden>
-    <section
-      class="avatar-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="avatar-modal-title"
-      aria-describedby="avatar-modal-description"
-    >
+    <section class="avatar-modal" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title"
+      aria-describedby="avatar-modal-description">
       <header class="avatar-modal-header">
         <h2 id="avatar-modal-title">アバターを選んでください</h2>
         <p id="avatar-modal-description">後からいつでも変更できます</p>
@@ -243,12 +305,7 @@
 
   <!-- プライベート部屋でだけ使用する部屋設定モーダルです。 -->
   <div id="room-settings-overlay" class="room-settings-overlay" hidden>
-    <section
-      class="room-settings-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="room-settings-title"
-    >
+    <section class="room-settings-modal" role="dialog" aria-modal="true" aria-labelledby="room-settings-title">
       <button type="button" id="close-room-settings-button" class="room-settings-close" aria-label="閉じる">
         ×
       </button>
@@ -293,13 +350,7 @@
       <form id="create-room-form" class="create-room-form">
         <div class="create-room-field">
           <label for="private-room-name">部屋名（任意）</label>
-          <input
-            type="text"
-            id="private-room-name"
-            name="roomName"
-            placeholder="例: チーム開発部屋"
-            maxlength="50"
-          >
+          <input type="text" id="private-room-name" name="roomName" placeholder="例: チーム開発部屋" maxlength="50">
           <p class="create-room-help">
             未入力の場合「〇〇の部屋」のように自動で名付けられます
           </p>
@@ -370,10 +421,12 @@
       <section class="workspace-card" aria-label="ワークスペース">
         <div id="workspace-scene" class="workspace-scene">
           <img id="room-background-layer" class="scene-layer background-layer" alt="">
-          <img id="upper-chair-layer" class="scene-layer chair-layer upper-chair-layer" src="work-space-pic/upper-chair.png" alt="">
+          <img id="upper-chair-layer" class="scene-layer chair-layer upper-chair-layer"
+            src="work-space-pic/upper-chair.png" alt="">
           <div id="upper-participant-layer" class="scene-layer participant-layer upper-participant-layer"></div>
           <img class="scene-layer desk-layer upper-desk-layer" src="work-space-pic/upper-desk.png" alt="">
-          <img id="lower-chair-layer" class="scene-layer chair-layer lower-chair-layer" src="work-space-pic/lower-chair.png" alt="">
+          <img id="lower-chair-layer" class="scene-layer chair-layer lower-chair-layer"
+            src="work-space-pic/lower-chair.png" alt="">
           <div id="lower-participant-layer" class="scene-layer participant-layer lower-participant-layer"></div>
           <img class="scene-layer desk-layer lower-desk-layer" src="work-space-pic/lower-desk.png" alt="">
 
@@ -391,24 +444,10 @@
 
       <aside class="room-side-card" aria-label="サイドパネル">
         <div class="side-tabs" role="tablist" aria-label="サイドパネルの表示切り替え">
-          <button
-            type="button"
-            id="self-tab"
-            class="side-tab is-active"
-            role="tab"
-            aria-selected="true"
-            aria-controls="self-panel"
-            data-side-tab="self"
-          >自分</button>
-          <button
-            type="button"
-            id="chat-tab"
-            class="side-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="chat-panel"
-            data-side-tab="chat"
-          >チャット</button>
+          <button type="button" id="self-tab" class="side-tab is-active" role="tab" aria-selected="true"
+            aria-controls="self-panel" data-side-tab="self">自分</button>
+          <button type="button" id="chat-tab" class="side-tab" role="tab" aria-selected="false"
+            aria-controls="chat-panel" data-side-tab="chat">チャット</button>
         </div>
 
         <div class="side-panel-content">
@@ -432,12 +471,7 @@
               <label class="side-label" for="my-work-content">
                 作業内容（任意・他の人にも見えます）
               </label>
-              <input
-                type="text"
-                id="my-work-content"
-                placeholder="例:Java学習"
-                maxlength="100"
-              >
+              <input type="text" id="my-work-content" placeholder="例:Java学習" maxlength="100">
               <button type="button" id="save-work-content-button">保存</button>
               <p id="work-content-error" class="form-error" aria-live="polite"></p>
             </div>
@@ -446,21 +480,11 @@
               <label class="side-label" for="private-memo">
                 📝 メモ（任意・自分だけに表示）
               </label>
-              <textarea
-                id="private-memo"
-                rows="7"
-                placeholder="自由にメモできます"
-              ></textarea>
+              <textarea id="private-memo" rows="7" placeholder="自由にメモできます"></textarea>
             </div>
           </section>
 
-          <section
-            id="chat-panel"
-            class="side-tab-panel chat-panel"
-            role="tabpanel"
-            aria-labelledby="chat-tab"
-            hidden
-          >
+          <section id="chat-panel" class="side-tab-panel chat-panel" role="tabpanel" aria-labelledby="chat-tab" hidden>
             <div class="chat-target-field">
               <label for="chat-target">送信先</label>
               <select id="chat-target">
@@ -475,12 +499,7 @@
 
             <div class="chat-composer">
               <label for="chat-message-input" class="visually-hidden">メッセージ</label>
-              <textarea
-                id="chat-message-input"
-                rows="2"
-                maxlength="500"
-                placeholder="全体へメッセージを送る"
-              ></textarea>
+              <textarea id="chat-message-input" rows="2" maxlength="500" placeholder="全体へメッセージを送る"></textarea>
               <button type="button" id="send-chat-button" aria-label="メッセージを送信">↑</button>
             </div>
             <p id="chat-error" class="error-message" aria-live="polite"></p>
@@ -491,6 +510,7 @@
   </main>
 
   <script src="js/app.js"></script>
+  <script src="js/top.js"></script>
   <script src="js/login.js"></script>
   <script src="js/register.js"></script>
   <script src="js/create-room.js"></script>
@@ -498,4 +518,5 @@
   <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.1.1/bundles/stomp.umd.min.js"></script>
   <script src="js/room.js"></script>
 </body>
+
 </html>

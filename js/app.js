@@ -16,6 +16,7 @@ function clearAuthenticatedUser() {
 }
 
 const viewTitles = {
+  top: "ワークwith | オンライン共同作業スペース",
   login: "ログイン | ワークwith",
   register: "新規登録 | ワークwith",
   lobby: "ロビー | ワークwith",
@@ -53,10 +54,10 @@ function showView(viewName, addHistory = true, queryString = "") {
   );
 }
 
-/** URLから表示対象を決めます。不明なURLの場合はログイン画面を表示します。 */
+/** URLから表示対象を決めます。不明なURLやハッシュなしの場合はトップ画面を表示します。 */
 function getViewFromUrl() {
   const viewName = window.location.hash.replace("#", "").split("?")[0];
-  return document.querySelector(`[data-view="${viewName}"]`) ? viewName : "login";
+  return document.querySelector(`[data-view="${viewName}"]`) ? viewName : "top";
 }
 
 /** ハッシュURLの?以降をURLSearchParamsへ渡せる文字列として取得します。 */
