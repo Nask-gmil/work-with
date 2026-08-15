@@ -89,6 +89,18 @@
   line-height: 1.5;
 }
 
+.turnstile-field {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.turnstile-field .register-error {
+  width: 100%;
+  text-align: center;
+}
+
 .register-button {
   width: 100%;
   min-height: 46px;

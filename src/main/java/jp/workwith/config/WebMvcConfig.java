@@ -22,6 +22,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 // 登録とログインは、未ログイン状態で利用する必要があります。
                 .excludePathPatterns(
                         "/api/users/register",
-                        "/api/users/login");
+                        "/api/users/login",
+                        "/api/public-config");
     }
 }

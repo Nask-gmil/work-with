@@ -21,6 +21,11 @@ import jp.workwith.user.UserSession;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.SeatAssignmentService;
+import jp.workwith.registration.ClientIpResolver;
+import jp.workwith.registration.RegistrationRateLimitService;
+import jp.workwith.registration.RegistrationRateLimitService.RateLimitResult;
+import jp.workwith.registration.TurnstileService;
+import jp.workwith.registration.TurnstileUnavailableException;
 
 /** 新規ユーザー登録のHTTPリクエストを受け付けます。 */
 @RestController
@@ -30,19 +35,43 @@ public class UserController {
     private final UserService userService;
     private final SeatAssignmentService seatAssignmentService;
     private final RoomRealtimeNotifier realtimeNotifier;
+    private final RegistrationRateLimitService registrationRateLimitService;
+    private final ClientIpResolver clientIpResolver;
+    private final TurnstileService turnstileService;
 
     public UserController(
             UserService userService,
             SeatAssignmentService seatAssignmentService,
-            RoomRealtimeNotifier realtimeNotifier) {
+            RoomRealtimeNotifier realtimeNotifier,
+            RegistrationRateLimitService registrationRateLimitService,
+            ClientIpResolver clientIpResolver,
+            TurnstileService turnstileService) {
         this.userService = userService;
         this.seatAssignmentService = seatAssignmentService;
         this.realtimeNotifier = realtimeNotifier;
+        this.registrationRateLimitService = registrationRateLimitService;
+        this.clientIpResolver = clientIpResolver;
+        this.turnstileService = turnstileService;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody UserRegistrationRequest request) {
+    public ResponseEntity<?> register(
+            @RequestBody UserRegistrationRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        RateLimitResult rateLimit = registrationRateLimitService.recordAttempt(clientIp);
+        if (!rateLimit.allowed()) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", Long.toString(rateLimit.retryAfterSeconds()))
+                    .body(new ApiErrorResponse(
+                            "新規登録の試行回数が多すぎます。しばらくしてから再試行してください。"));
+        }
+
         try {
+            if (!turnstileService.verify(request.getTurnstileToken(), clientIp)) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiErrorResponse("確認に失敗しました。もう一度お試しください。"));
+            }
             User createdUser = userService.register(request.getUsername(), request.getPassword());
             UserRegistrationResponse response = new UserRegistrationResponse(
                     createdUser.getUserId(),
@@ -53,6 +82,10 @@ public class UserController {
         } catch (DuplicateUsernameException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiErrorResponse(exception.getMessage()));
+        } catch (TurnstileUnavailableException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new ApiErrorResponse(
+                            "登録処理を一時的に実行できません。時間を置いて再度お試しください。"));
         } catch (DataAccessException exception) {
             // DB内部の詳細やパスワードを画面・ログへ返しません。
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

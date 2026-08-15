@@ -4,6 +4,9 @@ const registerForm = document.getElementById("register-form");
 const registerUsername = document.getElementById("register-username");
 const registerPassword = document.getElementById("register-password");
 const confirmPassword = document.getElementById("confirm-password");
+const turnstileError = document.getElementById("turnstile-error");
+let turnstileToken = "";
+let turnstileWidgetId = null;
 
 const registerFields = [
   {
@@ -32,6 +35,51 @@ function clearRegisterErrors() {
     field.error.textContent = "";
     field.input.removeAttribute("aria-invalid");
   });
+  turnstileError.textContent = "";
+}
+
+function resetTurnstile() {
+  turnstileToken = "";
+  if (turnstileWidgetId !== null && window.turnstile) {
+    window.turnstile.reset(turnstileWidgetId);
+  }
+}
+
+async function initializeTurnstile() {
+  try {
+    const response = await fetch("/api/public-config");
+    const config = await response.json();
+    if (!response.ok || !config.turnstileSiteKey) {
+      throw new Error("Turnstile sitekey is unavailable");
+    }
+
+    window.onTurnstileScriptLoaded = function () {
+      turnstileWidgetId = window.turnstile.render("#turnstile-widget", {
+        sitekey: config.turnstileSiteKey,
+        size: "flexible",
+        callback: function (token) {
+          turnstileToken = token;
+          turnstileError.textContent = "";
+        },
+        "expired-callback": function () {
+          turnstileToken = "";
+          turnstileError.textContent = "確認の有効期限が切れました。もう一度確認してください。";
+        },
+        "error-callback": function () {
+          turnstileToken = "";
+          turnstileError.textContent = "確認を読み込めませんでした。時間を置いて再度お試しください。";
+        }
+      });
+    };
+
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileScriptLoaded&render=explicit";
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  } catch (error) {
+    turnstileError.textContent = "確認機能を読み込めませんでした。時間を置いて再度お試しください。";
+  }
 }
 
 /**
@@ -73,6 +121,11 @@ async function registerUser() {
     return;
   }
 
+  if (!turnstileToken) {
+    turnstileError.textContent = "確認を完了してください。";
+    return;
+  }
+
   const registerButton = registerForm.querySelector("button[type='submit']");
   registerButton.disabled = true;
 
@@ -82,25 +135,33 @@ async function registerUser() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ username: username, password: password })
+      body: JSON.stringify({
+        username: username,
+        password: password,
+        turnstileToken: turnstileToken
+      })
     });
     const responseBody = await response.json();
 
     if (!response.ok) {
       const message = responseBody.message || "ユーザー登録に失敗しました";
-      if (message.includes("パスワード")) {
+      if (response.status === 429 || response.status === 503 || message.includes("確認")) {
+        turnstileError.textContent = message;
+      } else if (message.includes("パスワード")) {
         showRegisterError(registerFields[1], message);
         registerPassword.focus();
       } else {
         showRegisterError(registerFields[0], message);
         registerUsername.focus();
       }
+      resetTurnstile();
       return;
     }
 
     // 登録成功後は既存どおりログイン画面へ戻り、入力したusernameを引き継ぎます。
     document.getElementById("username").value = responseBody.username;
     registerForm.reset();
+    resetTurnstile();
     showView("login");
     document.getElementById("password").focus();
   } catch (error) {
@@ -117,6 +178,8 @@ registerForm.addEventListener("submit", function (event) {
   event.preventDefault();
   registerUser();
 });
+
+initializeTurnstile();
 
 // 入力を修正し始めたら、その欄のエラー表示を消します。
 registerFields.forEach(function (field) {

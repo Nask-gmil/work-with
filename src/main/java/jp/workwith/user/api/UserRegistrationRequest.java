@@ -5,6 +5,7 @@ public class UserRegistrationRequest {
 
     private String username;
     private String password;
+    private String turnstileToken;
 
     public UserRegistrationRequest() {
     }
@@ -23,5 +24,13 @@ public class UserRegistrationRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getTurnstileToken() {
+        return turnstileToken;
+    }
+
+    public void setTurnstileToken(String turnstileToken) {
+        this.turnstileToken = turnstileToken;
     }
 }
