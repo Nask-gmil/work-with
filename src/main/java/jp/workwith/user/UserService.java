@@ -31,6 +31,9 @@ public class UserService {
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("パスワードを入力してください");
         }
+        if (password.length() < 8) {
+            throw new IllegalArgumentException("パスワードは8文字以上で入力してください");
+        }
         if (userRepository.findByUsername(normalizedUsername).isPresent()) {
             throw new DuplicateUsernameException();
         }
