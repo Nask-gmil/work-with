@@ -20,6 +20,8 @@ import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.PrivateRoomAccessDeniedException;
 import jp.workwith.room.RoomService;
 import jp.workwith.room.RoomThemeForbiddenException;
+import jp.workwith.room.RoomActionRateLimitService;
+import jp.workwith.room.RoomActionRateLimitService.RateLimitResult;
 import jp.workwith.room.ThemeUpdateResult;
 import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seatassignment.AlreadyAssignedToAnotherRoomException;
@@ -35,10 +37,15 @@ public class RoomController {
 
     private final RoomService roomService;
     private final RoomRealtimeNotifier realtimeNotifier;
+    private final RoomActionRateLimitService roomActionRateLimitService;
 
-    public RoomController(RoomService roomService, RoomRealtimeNotifier realtimeNotifier) {
+    public RoomController(
+            RoomService roomService,
+            RoomRealtimeNotifier realtimeNotifier,
+            RoomActionRateLimitService roomActionRateLimitService) {
         this.roomService = roomService;
         this.realtimeNotifier = realtimeNotifier;
+        this.roomActionRateLimitService = roomActionRateLimitService;
     }
 
     /** ログイン中の本人をcreatedByとして、private部屋を作成します。 */
@@ -46,9 +53,17 @@ public class RoomController {
     public ResponseEntity<?> create(
             @RequestBody CreateRoomRequest requestBody,
             HttpServletRequest request) {
+        long userId = getLoginUserId(request);
+        RateLimitResult rateLimit = roomActionRateLimitService
+                .recordPrivateRoomCreateAttempt(userId);
+        if (!rateLimit.allowed()) {
+            return rateLimitExceeded(
+                    rateLimit,
+                    "短時間に作成できる部屋数の上限に達しました。一定時間後に再度お試しください。");
+        }
         try {
             Room createdRoom = roomService.createPrivateRoom(
-                    getLoginUserId(request),
+                    userId,
                     requestBody.getRoomName(),
                     requestBody.getTheme(),
                     requestBody.getMaxSeats());
@@ -183,8 +198,15 @@ public class RoomController {
     public ResponseEntity<?> joinPublicRoom(
             @PathVariable long roomId,
             HttpServletRequest request) {
+        long userId = getLoginUserId(request);
+        RateLimitResult rateLimit = roomActionRateLimitService.recordRoomJoinAttempt(userId);
+        if (!rateLimit.allowed()) {
+            return rateLimitExceeded(
+                    rateLimit,
+                    "短時間の入室回数が多いため、一時的に入室を制限しています。一定時間後に再度お試しください。");
+        }
         try {
-            Room room = roomService.joinPublicRoom(roomId, getLoginUserId(request));
+            Room room = roomService.joinPublicRoom(roomId, userId);
             realtimeNotifier.notifyParticipantsChanged(room.getRoomId());
             return ResponseEntity.ok(RoomResponse.from(room));
         } catch (RoomNotFoundException exception) {
@@ -203,9 +225,16 @@ public class RoomController {
     public ResponseEntity<?> joinPrivateRoom(
             @RequestBody PrivateRoomJoinRequest requestBody,
             HttpServletRequest request) {
+        long userId = getLoginUserId(request);
+        RateLimitResult rateLimit = roomActionRateLimitService.recordRoomJoinAttempt(userId);
+        if (!rateLimit.allowed()) {
+            return rateLimitExceeded(
+                    rateLimit,
+                    "短時間の入室回数が多いため、一時的に入室を制限しています。一定時間後に再度お試しください。");
+        }
         try {
             Room room = roomService.joinPrivateRoom(
-                    requestBody.getRoomCode(), getLoginUserId(request));
+                    requestBody.getRoomCode(), userId);
             realtimeNotifier.notifyParticipantsChanged(room.getRoomId());
             return ResponseEntity.ok(RoomResponse.from(room));
         } catch (RoomNotFoundException exception) {
@@ -231,5 +260,12 @@ public class RoomController {
     private ResponseEntity<ApiErrorResponse> serverError() {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse("部屋情報の処理に失敗しました"));
+    }
+
+    private ResponseEntity<ApiErrorResponse> rateLimitExceeded(
+            RateLimitResult rateLimit, String message) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(rateLimit.retryAfterSeconds()))
+                .body(new ApiErrorResponse(message));
     }
 }

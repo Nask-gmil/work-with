@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
+import jp.workwith.room.RoomActionRateLimitService;
 import jp.workwith.realtime.RoomRealtimeNotifier;
 import jp.workwith.seat.Seat;
 import jp.workwith.seat.SeatRepository;
@@ -42,7 +44,13 @@ class RoomJoinApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository seatAssignmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private RoomActionRateLimitService roomActionRateLimitService;
     @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
+
+    @BeforeEach
+    void resetRoomRateLimits() {
+        roomActionRateLimitService.clear();
+    }
 
     @Test
     void joinsPublicAndPrivateRoomsAndRejectsUnauthorizedInvalidAndConflictingJoins()

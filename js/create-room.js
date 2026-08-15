@@ -67,9 +67,9 @@ async function createPrivateRoom() {
 
   const responseBody = await response.json();
   if (!response.ok) {
-    const message = response.status === 400
-      ? responseBody.message || "入力内容を確認してください"
-      : "部屋を作成できませんでした";
+    const message = responseBody.message || (response.status === 400
+      ? "入力内容を確認してください"
+      : "部屋を作成できませんでした");
     throw new Error(message);
   }
 

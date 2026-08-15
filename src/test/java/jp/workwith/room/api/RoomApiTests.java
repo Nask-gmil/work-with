@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomRepository;
+import jp.workwith.room.RoomActionRateLimitService;
 import jp.workwith.seat.SeatRepository;
 import jp.workwith.seat.Seat;
 import jp.workwith.seatassignment.SeatAssignment;
@@ -59,6 +61,14 @@ class RoomApiTests {
 
     @Autowired
     private SeatAssignmentRepository seatAssignmentRepository;
+
+    @Autowired
+    private RoomActionRateLimitService roomActionRateLimitService;
+
+    @BeforeEach
+    void resetRoomRateLimits() {
+        roomActionRateLimitService.clear();
+    }
 
     @Test
     void requiresLoginForRoomApis() throws Exception {
@@ -170,6 +180,7 @@ class RoomApiTests {
             mockMvc.perform(get("/api/rooms/{roomId}", Long.MAX_VALUE).session(session))
                     .andExpect(status().isNotFound());
 
+            roomActionRateLimitService.clear();
             mockMvc.perform(post("/api/rooms")
                     .session(session)
                     .contentType(MediaType.APPLICATION_JSON)
