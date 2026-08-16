@@ -5,8 +5,11 @@ const registerUsername = document.getElementById("register-username");
 const registerPassword = document.getElementById("register-password");
 const confirmPassword = document.getElementById("confirm-password");
 const turnstileError = document.getElementById("turnstile-error");
+const registerButton = registerForm.querySelector("button[type='submit']");
+const defaultRegisterButtonText = registerButton.textContent;
 let turnstileToken = "";
 let turnstileWidgetId = null;
+let isRegistering = false;
 
 const registerFields = [
   {
@@ -87,6 +90,7 @@ async function initializeTurnstile() {
  * Spring Boot導入後は、成功時に登録APIを呼ぶ処理へ置き換えます。
  */
 async function registerUser() {
+  if (isRegistering) return;
   const username = registerUsername.value.trim().normalize("NFC");
   const password = registerPassword.value;
   const passwordConfirmation = confirmPassword.value;
@@ -138,8 +142,10 @@ async function registerUser() {
     return;
   }
 
-  const registerButton = registerForm.querySelector("button[type='submit']");
+  isRegistering = true;
   registerButton.disabled = true;
+  registerButton.textContent = "登録中...";
+  registerButton.setAttribute("aria-busy", "true");
 
   try {
     const response = await fetch("/api/users/register", {
@@ -182,7 +188,10 @@ async function registerUser() {
       "サーバーに接続できません。Spring Bootが起動しているか確認してください"
     );
   } finally {
+    isRegistering = false;
     registerButton.disabled = false;
+    registerButton.textContent = defaultRegisterButtonText;
+    registerButton.removeAttribute("aria-busy");
   }
 }
 
