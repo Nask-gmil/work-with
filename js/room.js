@@ -121,8 +121,8 @@ function loadMyWorkspaceState() {
 async function saveWorkContent() {
   if (!currentRoomInfo?.roomId) return;
   workContentError.textContent = "";
-  if (myWorkContentInput.value.trim().length > 50) {
-    workContentError.textContent = "作業内容は50文字以内で入力してください";
+  if (myWorkContentInput.value.trim().length > 25) {
+    workContentError.textContent = "作業内容は25文字以内で入力してください";
     return;
   }
   saveWorkContentButton.disabled = true;
@@ -825,12 +825,13 @@ function showAvatarTooltip(participant) {
     { text: `${participant.name}さん`, strong: true },
     { text: `状態: ${statusLabel}` },
     { text: `経過: ${participant.elapsedTime}` },
-    { text: `作業内容: ${memoLabel}` }
+    { text: `作業内容: ${memoLabel}`, className: "workspace-tooltip-work-content" }
   ];
 
   workspaceTooltip.replaceChildren();
   lines.forEach(function (line) {
     const element = document.createElement(line.strong ? "strong" : "span");
+    if (line.className) element.className = line.className;
     element.textContent = line.text;
     workspaceTooltip.appendChild(element);
   });

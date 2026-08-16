@@ -226,8 +226,8 @@
 .workspace-tooltip {
   position: absolute;
   z-index: 9;
-  width: max-content;
-  max-width: 210px;
+  box-sizing: border-box;
+  width: min(190px, calc(100% - 24px));
   padding: 10px 12px;
   transform: translate(-50%, calc(-100% - 12px));
   background-color: rgb(25 25 25 / 96%);
@@ -248,6 +248,13 @@
 .workspace-tooltip strong,
 .workspace-tooltip span {
   display: block;
+}
+
+.workspace-tooltip .workspace-tooltip-work-content {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.45;
 }
 
 .workspace-status-controls {
