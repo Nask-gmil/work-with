@@ -17,9 +17,15 @@ public class RetentionCleanupRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public int deleteChatMessagesSentAtOrBefore(LocalDateTime cutoff) {
+    public int deleteGlobalChatMessagesSentAtOrBefore(LocalDateTime cutoff) {
         return jdbcTemplate.update(
-                "DELETE FROM CHAT_MESSAGES WHERE sent_at <= ?",
+                "DELETE FROM CHAT_MESSAGES WHERE target_user_id IS NULL AND sent_at <= ?",
+                Timestamp.valueOf(cutoff));
+    }
+
+    public int deleteDirectMessagesSentAtOrBefore(LocalDateTime cutoff) {
+        return jdbcTemplate.update(
+                "DELETE FROM CHAT_MESSAGES WHERE target_user_id IS NOT NULL AND sent_at <= ?",
                 Timestamp.valueOf(cutoff));
     }
 
@@ -44,8 +50,14 @@ public class RetentionCleanupRepository {
                 roomId);
     }
 
-    public int deleteChatMessagesByRoomId(long roomId) {
-        return jdbcTemplate.update("DELETE FROM CHAT_MESSAGES WHERE room_id = ?", roomId);
+    public int deleteGlobalChatMessagesByRoomId(long roomId) {
+        return jdbcTemplate.update(
+                "DELETE FROM CHAT_MESSAGES WHERE room_id = ? AND target_user_id IS NULL", roomId);
+    }
+
+    public int deleteDirectMessagesByRoomId(long roomId) {
+        return jdbcTemplate.update(
+                "DELETE FROM CHAT_MESSAGES WHERE room_id = ? AND target_user_id IS NOT NULL", roomId);
     }
 
     public int deleteSeatsByRoomId(long roomId) {

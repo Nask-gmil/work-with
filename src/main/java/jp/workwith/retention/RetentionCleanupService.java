@@ -30,19 +30,22 @@ public class RetentionCleanupService {
 
     @Transactional
     public RetentionCleanupResult removeExpiredData(LocalDateTime now) {
-        int deletedChats = repository.deleteChatMessagesSentAtOrBefore(
-                now.minusHours(chatRetentionHours));
+        LocalDateTime chatCutoff = now.minusHours(chatRetentionHours);
+        int deletedGlobalChats = repository.deleteGlobalChatMessagesSentAtOrBefore(chatCutoff);
+        int deletedDirectMessages = repository.deleteDirectMessagesSentAtOrBefore(chatCutoff);
         LocalDateTime roomCutoff = now.minusDays(privateRoomRetentionDays);
         Set<Long> deletedRoomIds = new LinkedHashSet<>();
 
         for (long roomId : repository.findExpiredPrivateRoomIds(roomCutoff)) {
             repository.deleteSeatAssignmentsByRoomId(roomId);
-            deletedChats += repository.deleteChatMessagesByRoomId(roomId);
+            deletedGlobalChats += repository.deleteGlobalChatMessagesByRoomId(roomId);
+            deletedDirectMessages += repository.deleteDirectMessagesByRoomId(roomId);
             repository.deleteSeatsByRoomId(roomId);
             if (repository.deleteExpiredPrivateRoom(roomId, roomCutoff)) {
                 deletedRoomIds.add(roomId);
             }
         }
-        return new RetentionCleanupResult(deletedChats, Set.copyOf(deletedRoomIds));
+        return new RetentionCleanupResult(
+                deletedGlobalChats, deletedDirectMessages, Set.copyOf(deletedRoomIds));
     }
 }
