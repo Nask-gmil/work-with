@@ -36,7 +36,7 @@ class UserLoginApiTests {
 
     @Test
     void logsInWithCorrectPasswordAndRejectsInvalidCredentials() throws Exception {
-        String username = "login_test_" + UUID.randomUUID().toString().replace("-", "");
+        String username = "login_" + UUID.randomUUID().toString().replace("-", "").substring(0, 13);
         String correctPassword = "correct-password-123";
         User testUser = null;
 
@@ -65,7 +65,7 @@ class UserLoginApiTests {
             // 存在しないusernameも、同じステータスとメッセージにします。
             mockMvc.perform(post("/api/users/login")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(loginJson("missing_" + username, correctPassword)))
+                    .content(loginJson("missing_" + username.substring(6, 18), correctPassword)))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.message").value(INVALID_CREDENTIALS_MESSAGE));
         } finally {

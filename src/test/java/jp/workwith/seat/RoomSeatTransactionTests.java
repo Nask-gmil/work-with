@@ -37,7 +37,7 @@ class RoomSeatTransactionTests {
 
         try {
             assertThatThrownBy(() -> roomService.createPrivateRoom(
-                    user.getUserId(), "Rollback room", "focus", 10))
+                    user.getUserId(), "Rollback", "focus", 10))
                     .isInstanceOf(IllegalStateException.class);
             assertThat(roomRepository.findByCreatedBy(user.getUserId())).isEmpty();
         } finally {

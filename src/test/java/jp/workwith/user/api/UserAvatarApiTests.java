@@ -168,7 +168,7 @@ class UserAvatarApiTests {
     }
 
     private User createTestUser() {
-        String username = "avatar_test_" + UUID.randomUUID().toString().replace("-", "");
+        String username = "avatar_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         return userService.register(username, "avatar-test-password");
     }
 

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -113,15 +114,18 @@ class RoomChatControllerTests {
         ChatRateLimitService realLimiter = new ChatRateLimitService(
                 1, Duration.ofMinutes(1), 15, Duration.ofMinutes(1), Clock.systemUTC());
         RoomChatController limitedController = new RoomChatController(service, notifier, realLimiter);
-        when(service.createMessage(5L, 12L, null, ""))
-                .thenThrow(new IllegalArgumentException("content"));
+        String overLimit = "a".repeat(151);
+        when(service.createMessage(5L, 12L, null, overLimit))
+                .thenThrow(new IllegalArgumentException(
+                        "メッセージは1文字以上150文字以内で入力してください"));
 
-        limitedController.sendChatMessage(5L, new RoomChatRequest(null, ""), authenticatedHeaders(12L));
+        limitedController.sendChatMessage(
+                5L, new RoomChatRequest(null, overLimit), authenticatedHeaders(12L));
         limitedController.sendChatMessage(8L, new RoomChatRequest(null, "valid"), authenticatedHeaders(12L));
 
-        verify(service).createMessage(5L, 12L, null, "");
+        verify(service).createMessage(5L, 12L, null, overLimit);
         verify(service, never()).createMessage(8L, 12L, null, "valid");
-        verify(notifier).notifyChatError(any(Long.class), any(ChatErrorMessage.class));
+        verify(notifier, times(2)).notifyChatError(any(Long.class), any(ChatErrorMessage.class));
     }
 
     private SimpMessageHeaderAccessor authenticatedHeaders(long userId) {

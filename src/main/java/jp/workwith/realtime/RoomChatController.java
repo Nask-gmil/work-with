@@ -73,8 +73,11 @@ public class RoomChatController {
             } else {
                 realtimeNotifier.notifyPrivateChatMessage(message);
             }
-        } catch (IllegalArgumentException
-                | RoomNotFoundException
+        } catch (IllegalArgumentException exception) {
+            realtimeNotifier.notifyChatError(userId,
+                    new ChatErrorMessage("chat-validation", exception.getMessage(), 0));
+            LOGGER.warn("不正なWebSocketチャット送信を拒否しました: {}", exception.getMessage());
+        } catch (RoomNotFoundException
                 | SeatAssignmentNotFoundException
                 | SeatAssignmentRoomMismatchException
                 | UserNotFoundException exception) {

@@ -57,7 +57,7 @@ class UserRegistrationApiTests {
 
     @Test
     void registersUserWithHashedPasswordAndRejectsDuplicate() throws Exception {
-        String username = "api_test_" + UUID.randomUUID().toString().replace("-", "");
+        String username = "api_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         String plainPassword = "password123";
 
         try {
@@ -103,6 +103,40 @@ class UserRegistrationApiTests {
                 .content(registrationJson("new_user", "")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("パスワードを入力してください"));
+    }
+
+    @Test
+    void acceptsBoundaryLengthsAndRejectsLongerValuesWithoutCreatingUsers() throws Exception {
+        String username20 = "u" + UUID.randomUUID().toString().replace("-", "").substring(0, 19);
+        String username21 = username20 + "x";
+        String password64 = "p".repeat(64);
+        String password65 = "p".repeat(65);
+        try {
+            mockMvc.perform(post("/api/users/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registrationJson(username20, password64)))
+                    .andExpect(status().isCreated());
+            User saved = userRepository.findByUsername(username20).orElseThrow();
+            assertThat(passwordEncoder.matches(password64, saved.getPassword())).isTrue();
+
+            mockMvc.perform(post("/api/users/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registrationJson(username21, "password123")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("ユーザー名は20文字以内で入力してください"));
+            assertThat(userRepository.findByUsername(username21)).isEmpty();
+
+            String passwordUser = "p" + username20.substring(1);
+            mockMvc.perform(post("/api/users/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registrationJson(passwordUser, password65)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("パスワードは64文字以内で入力してください"));
+            assertThat(userRepository.findByUsername(passwordUser)).isEmpty();
+        } finally {
+            userRepository.findByUsername(username20)
+                    .ifPresent(user -> userRepository.deleteById(user.getUserId()));
+        }
     }
 
     @Test

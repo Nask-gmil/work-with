@@ -26,7 +26,7 @@ import jp.workwith.user.UserRepository;
 @Service
 public class RoomChatService {
 
-    public static final int MAX_CONTENT_LENGTH = 500;
+    public static final int MAX_CONTENT_LENGTH = 150;
     public static final int HISTORY_LIMIT = 50;
 
     private final RoomRepository roomRepository;
@@ -53,7 +53,7 @@ public class RoomChatService {
             long roomId, long userId, Long targetUserId, String rawContent) {
         String content = rawContent == null ? "" : rawContent.trim();
         if (content.isEmpty() || content.length() > MAX_CONTENT_LENGTH) {
-            throw new IllegalArgumentException("メッセージは1文字以上500文字以内で入力してください");
+            throw new IllegalArgumentException("メッセージは1文字以上150文字以内で入力してください");
         }
 
         validateSeatedUser(roomId, userId);

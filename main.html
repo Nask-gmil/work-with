@@ -130,13 +130,13 @@
       <form id="login-form" class="login-form">
         <div class="form-field">
           <label for="username">ユーザーネーム</label>
-          <input type="text" id="username" name="username" placeholder="例:yamada_taro" autocomplete="username" required>
+          <input type="text" id="username" name="username" placeholder="例:yamada_taro" autocomplete="username" maxlength="20" required>
         </div>
 
         <div class="form-field">
           <label for="password">パスワード</label>
           <input type="password" id="password" name="password" placeholder="8文字以上" autocomplete="current-password"
-            minlength="8" required>
+            minlength="8" maxlength="64" required>
         </div>
 
         <button type="submit" class="login-button">ログイン</button>
@@ -161,7 +161,7 @@
         <div class="register-field">
           <label for="register-username">ユーザーネーム</label>
           <input type="text" id="register-username" name="username" placeholder="例:yamada_taro" autocomplete="username"
-            aria-describedby="username-help username-error">
+            maxlength="20" aria-describedby="username-help username-error">
           <p id="username-help" class="field-help">
             半角英数字、他の人と重複しない名前にしてください
           </p>
@@ -171,14 +171,14 @@
         <div class="register-field">
           <label for="register-password">パスワード</label>
           <input type="password" id="register-password" name="password" placeholder="8文字以上" autocomplete="new-password"
-            aria-describedby="password-error">
+            minlength="8" maxlength="64" aria-describedby="password-error">
           <p id="password-error" class="register-error" aria-live="polite"></p>
         </div>
 
         <div class="register-field">
           <label for="confirm-password">パスワード（確認）</label>
           <input type="password" id="confirm-password" name="confirmPassword" placeholder="もう一度入力"
-            autocomplete="new-password" aria-describedby="confirm-password-error">
+            autocomplete="new-password" minlength="8" maxlength="64" aria-describedby="confirm-password-error">
           <p id="confirm-password-error" class="register-error" aria-live="polite"></p>
         </div>
 
@@ -350,7 +350,7 @@
       <form id="create-room-form" class="create-room-form">
         <div class="create-room-field">
           <label for="private-room-name">部屋名（任意）</label>
-          <input type="text" id="private-room-name" name="roomName" placeholder="例: チーム開発部屋" maxlength="50">
+          <input type="text" id="private-room-name" name="roomName" placeholder="例: チーム開発部屋" maxlength="10">
           <p class="create-room-help">
             未入力の場合「〇〇の部屋」のように自動で名付けられます
           </p>
@@ -471,7 +471,7 @@
               <label class="side-label" for="my-work-content">
                 作業内容（任意・他の人にも見えます）
               </label>
-              <input type="text" id="my-work-content" placeholder="例:Java学習" maxlength="100">
+              <input type="text" id="my-work-content" placeholder="例:Java学習" maxlength="50">
               <button type="button" id="save-work-content-button">保存</button>
               <p id="work-content-error" class="form-error" aria-live="polite"></p>
             </div>
@@ -499,7 +499,7 @@
 
             <div class="chat-composer">
               <label for="chat-message-input" class="visually-hidden">メッセージ</label>
-              <textarea id="chat-message-input" rows="2" maxlength="500" placeholder="全体へメッセージを送る"></textarea>
+              <textarea id="chat-message-input" rows="2" maxlength="150" placeholder="全体へメッセージを送る"></textarea>
               <button type="button" id="send-chat-button" aria-label="メッセージを送信">↑</button>
             </div>
             <p id="chat-error" class="error-message" aria-live="polite"></p>

@@ -42,10 +42,10 @@ class SeatApiTests {
     @Test
     void createsMaxSeatsAndReturnsThemInOrder() throws Exception {
         User user = userService.register(
-                "seat_api_" + UUID.randomUUID().toString().replace("-", ""),
+                "seat_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14),
                 "seat-api-password");
         User unrelatedUser = userService.register(
-                "seat_api_other_" + UUID.randomUUID().toString().replace("-", ""),
+                "seat2_" + UUID.randomUUID().toString().replace("-", "").substring(0, 13),
                 "seat-api-password");
         MockHttpSession session = new MockHttpSession();
         session.setAttribute(UserSession.LOGIN_USER_ID, user.getUserId());

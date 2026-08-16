@@ -49,17 +49,17 @@ class SeatAssignmentWorkContentApiTests {
             mockMvc.perform(patch("/api/rooms/{roomId}/seat-assignments/me/work-content",
                     data.room().getRoomId()).session(session(data.user()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"workContent\":\"  Spring Boot学習  \",\"userId\":"
+                    .content("{\"workContent\":\"" + "a".repeat(50) + "\",\"userId\":"
                             + data.other().getUserId() + "}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.userId").value(data.user().getUserId()))
-                    .andExpect(jsonPath("$.workContent").value("Spring Boot学習"))
+                    .andExpect(jsonPath("$.workContent").value("a".repeat(50)))
                     .andExpect(jsonPath("$.status").value("break"));
             verify(realtimeNotifier).notifyWorkContentChanged(
                     data.room().getRoomId(), data.user().getUserId());
             SeatAssignment updated = assignmentRepository.findByUserId(
                     data.user().getUserId()).orElseThrow();
-            assertThat(updated.getWorkContent()).isEqualTo("Spring Boot学習");
+            assertThat(updated.getWorkContent()).isEqualTo("a".repeat(50));
             assertThat(updated.getStatus()).isEqualTo("break");
             assertThat(updated.getStartedAt()).isEqualTo(data.assignment().getStartedAt());
             assertThat(updated.getLastHeartbeatAt()).isEqualTo(data.assignment().getLastHeartbeatAt());
@@ -88,8 +88,12 @@ class SeatAssignmentWorkContentApiTests {
             mockMvc.perform(patch("/api/rooms/{roomId}/seat-assignments/me/work-content",
                     data.room().getRoomId()).session(session(data.user()))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"workContent\":\"" + "a".repeat(101) + "\"}"))
-                    .andExpect(status().isBadRequest());
+                    .content("{\"workContent\":\"" + "a".repeat(51) + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message")
+                            .value("作業内容は50文字以内で入力してください"));
+            assertThat(assignmentRepository.findByUserId(data.user().getUserId()))
+                    .get().extracting(SeatAssignment::getWorkContent).isEqualTo("old");
             mockMvc.perform(patch("/api/rooms/{roomId}/seat-assignments/me/work-content",
                     otherRoom.getRoomId()).session(session(data.user()))
                     .contentType(MediaType.APPLICATION_JSON)

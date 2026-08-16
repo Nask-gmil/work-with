@@ -78,10 +78,32 @@ class RoomChatServiceTests {
     }
 
     @Test
-    void rejectsEmptyAndOver500CharacterMessages() {
+    void accepts150AndRejects151CharacterGlobalAndDmMessages() {
         assertThatThrownBy(() -> service.createMessage(5L, 12L, null, " \n "))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.createMessage(5L, 12L, null, "a".repeat(501)))
+        assertThat(service.createMessage(5L, 12L, null, "a".repeat(150)).content())
+                .hasSize(150);
+        assertThat(service.createMessage(5L, 12L, 13L, "b".repeat(150)).content())
+                .hasSize(150);
+        org.mockito.Mockito.clearInvocations(chatMessageRepository);
+
+        assertThatThrownBy(() -> service.createMessage(5L, 12L, null, "a".repeat(151)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.createMessage(5L, 12L, 13L, "b".repeat(151)))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verify(chatMessageRepository, org.mockito.Mockito.never())
+                .create(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void appliesTheSame150CharacterLimitToPrivateRoomGlobalChat() {
+        when(roomRepository.findById(5L)).thenReturn(Optional.of(new Room(
+                5L, "ABC123", "private", "Private", "focus", null, 10, 12L)));
+
+        assertThat(service.createMessage(5L, 12L, null, "a".repeat(150)).content())
+                .hasSize(150);
+        org.mockito.Mockito.clearInvocations(chatMessageRepository);
+        assertThatThrownBy(() -> service.createMessage(5L, 12L, null, "a".repeat(151)))
                 .isInstanceOf(IllegalArgumentException.class);
         org.mockito.Mockito.verify(chatMessageRepository, org.mockito.Mockito.never())
                 .create(org.mockito.ArgumentMatchers.any());

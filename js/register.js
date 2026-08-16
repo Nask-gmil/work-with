@@ -109,8 +109,20 @@ async function registerUser() {
     return;
   }
 
+  if (username.length > 20) {
+    showRegisterError(registerFields[0], "ユーザー名は20文字以内で入力してください");
+    registerUsername.focus();
+    return;
+  }
+
   if (password.length < 8) {
     showRegisterError(registerFields[1], "パスワードは8文字以上で入力してください");
+    registerPassword.focus();
+    return;
+  }
+
+  if (password.length > 64) {
+    showRegisterError(registerFields[1], "パスワードは64文字以内で入力してください");
     registerPassword.focus();
     return;
   }

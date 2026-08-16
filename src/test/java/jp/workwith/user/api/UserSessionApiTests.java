@@ -37,7 +37,7 @@ class UserSessionApiTests {
 
     @Test
     void createsSessionReturnsCurrentUserAndLogsOut() throws Exception {
-        String username = "session_test_" + UUID.randomUUID().toString().replace("-", "");
+        String username = "session_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         String password = "session-test-password";
         User testUser = null;
 

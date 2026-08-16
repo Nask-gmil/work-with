@@ -86,9 +86,10 @@ class RoomApiTests {
 
     @Test
     void createsPrivateRoomsFromSessionAndRetrievesThem() throws Exception {
-        String username = "room_api_" + UUID.randomUUID().toString().replace("-", "");
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        String username = "room_" + suffix;
         User user = userService.register(username, "room-api-password");
-        User secondUser = userService.register(username + "_second", "room-api-password");
+        User secondUser = userService.register("room2_" + suffix, "room-api-password");
         MockHttpSession session = loggedInSession(user);
         MockHttpSession secondSession = loggedInSession(secondUser);
         List<Long> createdRoomIds = new ArrayList<>();
@@ -206,9 +207,10 @@ class RoomApiTests {
 
     @Test
     void onlyPrivateRoomCreatorCanUpdateTheme() throws Exception {
-        String username = "theme_api_" + UUID.randomUUID().toString().replace("-", "");
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 9);
+        String username = "theme_" + suffix;
         User creator = userService.register(username, "theme-api-password");
-        User otherUser = userService.register(username + "_other", "theme-api-password");
+        User otherUser = userService.register("theme2_" + suffix, "theme-api-password");
         long roomId = roomIdFrom(mockMvc.perform(post("/api/rooms")
                 .session(loggedInSession(creator))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -265,10 +267,10 @@ class RoomApiTests {
 
     @Test
     void privateRoomParticipantCanReadDetailsButUnrelatedUserCannot() throws Exception {
-        String suffix = UUID.randomUUID().toString().replace("-", "");
-        User creator = userService.register("private_owner_" + suffix, "private-password");
-        User participant = userService.register("private_member_" + suffix, "private-password");
-        User unrelated = userService.register("private_other_" + suffix, "private-password");
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        User creator = userService.register("owner_" + suffix, "private-password");
+        User participant = userService.register("member_" + suffix, "private-password");
+        User unrelated = userService.register("other_" + suffix, "private-password");
         Room room = roomRepository.create(new Room(
                 null, "Z" + suffix.substring(0, 5).toUpperCase(), "private",
                 "Protected room", "focus", null, 2, creator.getUserId()));

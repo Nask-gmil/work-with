@@ -18,6 +18,8 @@ import jp.workwith.seat.SeatRepository;
 @Service
 public class SeatAssignmentService {
 
+    public static final int MAX_WORK_CONTENT_LENGTH = 50;
+
     private final SeatAssignmentRepository seatAssignmentRepository;
     private final SeatRepository seatRepository;
     private final RoomRepository roomRepository;
@@ -180,8 +182,8 @@ public class SeatAssignmentService {
 
     private String normalizeWorkContent(String workContent) {
         String normalized = workContent == null ? "" : workContent.trim();
-        if (normalized.length() > 100) {
-            throw new IllegalArgumentException("作業内容は100文字以内で入力してください");
+        if (normalized.length() > MAX_WORK_CONTENT_LENGTH) {
+            throw new IllegalArgumentException("作業内容は50文字以内で入力してください");
         }
         return normalized.isEmpty() ? null : normalized;
     }

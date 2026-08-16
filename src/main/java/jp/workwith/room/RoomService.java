@@ -21,6 +21,7 @@ import jp.workwith.user.UserService;
 public class RoomService {
 
     private static final int MAX_SEATS = 10;
+    public static final int MAX_PRIVATE_ROOM_NAME_LENGTH = 10;
     private static final int ROOM_CODE_LENGTH = 6;
     private static final int ROOM_CODE_MAX_ATTEMPTS = 20;
     private static final String ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -234,8 +235,9 @@ public class RoomService {
         if (normalizedName.isEmpty()) {
             return username + "の部屋";
         }
-        if (normalizedName.length() > 100 || normalizedName.chars().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException("部屋名は100文字以内で入力してください");
+        if (normalizedName.length() > MAX_PRIVATE_ROOM_NAME_LENGTH
+                || normalizedName.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("部屋名は10文字以内で入力してください");
         }
         return normalizedName;
     }

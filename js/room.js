@@ -121,6 +121,10 @@ function loadMyWorkspaceState() {
 async function saveWorkContent() {
   if (!currentRoomInfo?.roomId) return;
   workContentError.textContent = "";
+  if (myWorkContentInput.value.trim().length > 50) {
+    workContentError.textContent = "作業内容は50文字以内で入力してください";
+    return;
+  }
   saveWorkContentButton.disabled = true;
   try {
     const response = await fetch(
@@ -1043,8 +1047,8 @@ function mergeRoomChatMessages(targetId, messages) {
 function sendChatMessage() {
   const content = chatMessageInput.value.trim();
   chatError.textContent = "";
-  if (!content || content.length > 500) {
-    chatError.textContent = "メッセージは1文字以上500文字以内で入力してください";
+  if (!content || content.length > 150) {
+    chatError.textContent = "メッセージは1文字以上150文字以内で入力してください";
     return;
   }
   if (!roomStompClient?.connected || !currentRoomInfo?.roomId) {

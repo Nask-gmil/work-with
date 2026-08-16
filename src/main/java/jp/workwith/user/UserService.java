@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService {
 
+    public static final int MAX_USERNAME_LENGTH = 20;
+    public static final int MAX_PASSWORD_LENGTH = 64;
+
     private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of(
             "male_a", "male_b", "female_a", "female_b");
 
@@ -28,11 +31,17 @@ public class UserService {
         if (normalizedUsername.isEmpty()) {
             throw new IllegalArgumentException("ユーザー名を入力してください");
         }
+        if (normalizedUsername.length() > MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("ユーザー名は20文字以内で入力してください");
+        }
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("パスワードを入力してください");
         }
         if (password.length() < 8) {
             throw new IllegalArgumentException("パスワードは8文字以上で入力してください");
+        }
+        if (password.length() > MAX_PASSWORD_LENGTH) {
+            throw new IllegalArgumentException("パスワードは64文字以内で入力してください");
         }
         if (userRepository.findByUsername(normalizedUsername).isPresent()) {
             throw new DuplicateUsernameException();
@@ -57,8 +66,14 @@ public class UserService {
         if (normalizedUsername.isEmpty()) {
             throw new IllegalArgumentException("ユーザー名を入力してください");
         }
+        if (normalizedUsername.length() > MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("ユーザー名は20文字以内で入力してください");
+        }
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("パスワードを入力してください");
+        }
+        if (password.length() > MAX_PASSWORD_LENGTH) {
+            throw new IllegalArgumentException("パスワードは64文字以内で入力してください");
         }
 
         User user = userRepository.findByUsername(normalizedUsername)

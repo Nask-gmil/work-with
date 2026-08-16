@@ -49,12 +49,16 @@ function returnToLoginAfterRoomUnauthorized() {
 
 /** 入力内容をSpring Bootへ送り、SQLiteにprivate部屋を作成します。 */
 async function createPrivateRoom() {
+  const roomName = privateRoomNameInput.value.trim();
+  if (roomName.length > 10) {
+    throw new Error("部屋名は10文字以内で入力してください");
+  }
   const response = await fetch("/api/rooms", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      roomName: privateRoomNameInput.value.trim(),
+      roomName: roomName,
       theme: createRoomForm.elements.roomTheme.value,
       maxSeats: 10
     })
