@@ -25,7 +25,7 @@ function clearLoginError() {
 
 /** 入力情報をログインAPIへ送り、成功した場合だけロビーを表示します。 */
 async function login() {
-  const username = loginUsername.value.trim();
+  const username = loginUsername.value.trim().normalize("NFC");
   const password = loginPassword.value;
 
   clearLoginError();

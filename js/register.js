@@ -87,10 +87,10 @@ async function initializeTurnstile() {
  * Spring Boot導入後は、成功時に登録APIを呼ぶ処理へ置き換えます。
  */
 async function registerUser() {
-  const username = registerUsername.value.trim();
+  const username = registerUsername.value.trim().normalize("NFC");
   const password = registerPassword.value;
   const passwordConfirmation = confirmPassword.value;
-  const usernamePattern = /^[A-Za-z0-9_]+$/;
+  const usernamePattern = /^[A-Za-z0-9_\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]+$/u;
 
   clearRegisterErrors();
 
@@ -103,7 +103,7 @@ async function registerUser() {
   if (!usernamePattern.test(username)) {
     showRegisterError(
       registerFields[0],
-      "ユーザーネームは半角英数字とアンダースコアで入力してください"
+      "ユーザー名は半角英数字、アンダーバー、ひらがな、カタカナ、漢字で入力してください"
     );
     registerUsername.focus();
     return;

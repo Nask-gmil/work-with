@@ -1,7 +1,9 @@
 package jp.workwith.user;
 
+import java.text.Normalizer;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +15,8 @@ public class UserService {
 
     public static final int MAX_USERNAME_LENGTH = 20;
     public static final int MAX_PASSWORD_LENGTH = 64;
+    private static final Pattern USERNAME_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9_\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}]+$");
 
     private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of(
             "male_a", "male_b", "female_a", "female_b");
@@ -26,14 +30,7 @@ public class UserService {
     }
 
     public User register(String username, String password) {
-        String normalizedUsername = username == null ? "" : username.trim();
-
-        if (normalizedUsername.isEmpty()) {
-            throw new IllegalArgumentException("ユーザー名を入力してください");
-        }
-        if (normalizedUsername.length() > MAX_USERNAME_LENGTH) {
-            throw new IllegalArgumentException("ユーザー名は20文字以内で入力してください");
-        }
+        String normalizedUsername = normalizeAndValidateUsername(username);
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("パスワードを入力してください");
         }
@@ -61,14 +58,7 @@ public class UserService {
 
     /** usernameと平文パスワードを照合し、成功したユーザーを返します。 */
     public User login(String username, String password) {
-        String normalizedUsername = username == null ? "" : username.trim();
-
-        if (normalizedUsername.isEmpty()) {
-            throw new IllegalArgumentException("ユーザー名を入力してください");
-        }
-        if (normalizedUsername.length() > MAX_USERNAME_LENGTH) {
-            throw new IllegalArgumentException("ユーザー名は20文字以内で入力してください");
-        }
+        String normalizedUsername = normalizeAndValidateUsername(username);
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("パスワードを入力してください");
         }
@@ -90,6 +80,23 @@ public class UserService {
     /** セッションに保存されたIDから現在のユーザーを取得します。 */
     public Optional<User> findById(long userId) {
         return userRepository.findById(userId);
+    }
+
+    /** 登録・ログイン・重複検索で同じusername表現と文字種を使用します。 */
+    private String normalizeAndValidateUsername(String username) {
+        String trimmedUsername = username == null ? "" : username.trim();
+        String normalizedUsername = Normalizer.normalize(trimmedUsername, Normalizer.Form.NFC);
+        if (normalizedUsername.isEmpty()) {
+            throw new IllegalArgumentException("ユーザー名を入力してください");
+        }
+        if (normalizedUsername.length() > MAX_USERNAME_LENGTH) {
+            throw new IllegalArgumentException("ユーザー名は20文字以内で入力してください");
+        }
+        if (!USERNAME_PATTERN.matcher(normalizedUsername).matches()) {
+            throw new IllegalArgumentException(
+                    "ユーザー名は半角英数字、アンダーバー、ひらがな、カタカナ、漢字で入力してください");
+        }
+        return normalizedUsername;
     }
 
     /** ログイン中のユーザーのアバターを検証して更新します。 */

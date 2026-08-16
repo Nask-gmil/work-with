@@ -140,6 +140,40 @@ class UserRegistrationApiTests {
     }
 
     @Test
+    void registersLogsInAndDetectsDuplicatesUsingNormalizedJapaneseUsername() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+        String decomposedUsername = "か\u3099く" + suffix;
+        String normalizedUsername = "がく" + suffix;
+        String password = "password123";
+        try {
+            mockMvc.perform(post("/api/users/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registrationJson(decomposedUsername, password)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.username").value(normalizedUsername));
+            assertThat(userRepository.findByUsername(normalizedUsername)).isPresent();
+
+            mockMvc.perform(post("/api/users/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"username":"%s","password":"%s"}
+                            """.formatted(decomposedUsername, password)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.username").value(normalizedUsername));
+
+            mockMvc.perform(post("/api/users/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(registrationJson(normalizedUsername, password)))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message")
+                            .value("そのユーザー名はすでに使用されています"));
+        } finally {
+            userRepository.findByUsername(normalizedUsername)
+                    .ifPresent(user -> userRepository.deleteById(user.getUserId()));
+        }
+    }
+
+    @Test
     void rejectsMissingOrInvalidTurnstileWithoutCreatingUser() throws Exception {
         String username = "turnstile_reject_" + UUID.randomUUID().toString().replace("-", "");
         when(turnstileService.verify(anyString(), anyString())).thenReturn(false);
