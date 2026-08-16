@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -62,6 +64,11 @@ class SeatAssignmentApiTests {
                     .andExpect(jsonPath("$").isEmpty());
 
             LocalDateTime startedAt = LocalDateTime.of(2026, 8, 12, 14, 30);
+            String startedAtWithOffset = startedAt.atZone(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            String heartbeatAtWithOffset = startedAt.plusMinutes(1)
+                    .atZone(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             seatAssignmentRepository.create(new SeatAssignment(
                     seat.getSeatId(), user.getUserId(), "working", "Java学習",
                     startedAt, startedAt.plusMinutes(1)));
@@ -79,8 +86,8 @@ class SeatAssignmentApiTests {
                     .andExpect(jsonPath("$[0].avatarType").value("male_a"))
                     .andExpect(jsonPath("$[0].status").value("working"))
                     .andExpect(jsonPath("$[0].workContent").value("Java学習"))
-                    .andExpect(jsonPath("$[0].startedAt").value("2026-08-12T14:30:00"))
-                    .andExpect(jsonPath("$[0].lastHeartbeatAt").value("2026-08-12T14:31:00"))
+                    .andExpect(jsonPath("$[0].startedAt").value(startedAtWithOffset))
+                    .andExpect(jsonPath("$[0].lastHeartbeatAt").value(heartbeatAtWithOffset))
                     .andExpect(jsonPath("$[0].password").doesNotExist());
 
             mockMvc.perform(get("/api/rooms/{roomId}/seat-assignments", room.getRoomId())

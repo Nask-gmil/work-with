@@ -1,6 +1,7 @@
 package jp.workwith.seatassignment.api;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 import jp.workwith.seatassignment.RoomParticipant;
 
@@ -12,8 +13,8 @@ public record SeatAssignmentResponse(
         String avatarType,
         String status,
         String workContent,
-        LocalDateTime startedAt,
-        LocalDateTime lastHeartbeatAt) {
+        OffsetDateTime startedAt,
+        OffsetDateTime lastHeartbeatAt) {
 
     public static SeatAssignmentResponse from(RoomParticipant participant) {
         return new SeatAssignmentResponse(
@@ -23,7 +24,12 @@ public record SeatAssignmentResponse(
                 participant.avatarType(),
                 participant.status(),
                 participant.workContent(),
-                participant.startedAt(),
-                participant.lastHeartbeatAt());
+                withServerOffset(participant.startedAt()),
+                withServerOffset(participant.lastHeartbeatAt()));
+    }
+
+    /** DBのタイムゾーンなし日時に、保存時と同じサーバーのUTCオフセットを付けます。 */
+    private static OffsetDateTime withServerOffset(java.time.LocalDateTime value) {
+        return value == null ? null : value.atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }
 }
