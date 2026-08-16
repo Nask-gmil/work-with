@@ -18,6 +18,7 @@ import jp.workwith.room.RoomService;
 import jp.workwith.seat.SeatService;
 import jp.workwith.user.api.ApiErrorResponse;
 import jp.workwith.user.UserSession;
+import jp.workwith.security.SecurityEventLogger;
 
 /** 部屋ごとの座席一覧APIです。ログイン判定はAuthInterceptorに任せます。 */
 @RestController
@@ -26,10 +27,13 @@ public class SeatController {
 
     private final SeatService seatService;
     private final RoomService roomService;
+    private final SecurityEventLogger securityEventLogger;
 
-    public SeatController(SeatService seatService, RoomService roomService) {
+    public SeatController(SeatService seatService, RoomService roomService,
+            SecurityEventLogger securityEventLogger) {
         this.seatService = seatService;
         this.roomService = roomService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     @GetMapping
@@ -45,6 +49,9 @@ public class SeatController {
                     .toList();
             return ResponseEntity.ok(response);
         } catch (PrivateRoomAccessDeniedException exception) {
+            long userId = ((Number) request.getSession(false)
+                    .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            securityEventLogger.privateRoomForbidden(userId, roomId, "SEATS");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {

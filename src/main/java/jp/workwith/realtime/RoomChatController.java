@@ -15,6 +15,7 @@ import jp.workwith.seatassignment.SeatAssignmentNotFoundException;
 import jp.workwith.seatassignment.SeatAssignmentRoomMismatchException;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.user.UserSession;
+import jp.workwith.security.SecurityEventLogger;
 
 @Controller
 public class RoomChatController {
@@ -23,14 +24,17 @@ public class RoomChatController {
     private final RoomChatService roomChatService;
     private final RoomRealtimeNotifier realtimeNotifier;
     private final ChatRateLimitService rateLimitService;
+    private final SecurityEventLogger securityEventLogger;
 
     public RoomChatController(
             RoomChatService roomChatService,
             RoomRealtimeNotifier realtimeNotifier,
-            ChatRateLimitService rateLimitService) {
+            ChatRateLimitService rateLimitService,
+            SecurityEventLogger securityEventLogger) {
         this.roomChatService = roomChatService;
         this.realtimeNotifier = realtimeNotifier;
         this.rateLimitService = rateLimitService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     @MessageMapping("/room/{roomId}/chat")
@@ -42,7 +46,7 @@ public class RoomChatController {
         Object loginUserId = sessionAttributes == null
                 ? null : sessionAttributes.get(UserSession.LOGIN_USER_ID);
         if (!(loginUserId instanceof Number number)) {
-            LOGGER.warn("未認証のWebSocketチャット送信を拒否しました");
+            securityEventLogger.websocketForbidden(null, roomId, "CHAT_SEND", null);
             return;
         }
 
@@ -52,6 +56,7 @@ public class RoomChatController {
                 ? rateLimitService.recordDmAttempt(userId)
                 : rateLimitService.recordChatAttempt(userId);
         if (!rateLimit.allowed()) {
+            securityEventLogger.rateLimit(dm ? "DM_SEND" : "CHAT_SEND", userId, null, roomId);
             String type = dm ? "dm-rate-limit" : "chat-rate-limit";
             String message = dm
                     ? "DMの送信回数が多すぎます。少し時間を空けてから再度お試しください。"
@@ -76,12 +81,16 @@ public class RoomChatController {
         } catch (IllegalArgumentException exception) {
             realtimeNotifier.notifyChatError(userId,
                     new ChatErrorMessage("chat-validation", exception.getMessage(), 0));
-            LOGGER.warn("不正なWebSocketチャット送信を拒否しました: {}", exception.getMessage());
+            String content = request == null ? null : request.content();
+            if (content != null && content.length() > 300) {
+                securityEventLogger.invalidInput(userId, dm ? "DM_SEND" : "CHAT_SEND");
+            }
         } catch (RoomNotFoundException
                 | SeatAssignmentNotFoundException
                 | SeatAssignmentRoomMismatchException
                 | UserNotFoundException exception) {
-            LOGGER.warn("不正なWebSocketチャット送信を拒否しました: {}", exception.getMessage());
+            securityEventLogger.websocketForbidden(
+                    userId, roomId, dm ? "DM_SEND" : "CHAT_SEND", null);
         } catch (RuntimeException exception) {
             // DB障害などで1件の送信に失敗しても、WebSocket接続全体は切断しません。
             LOGGER.error("WebSocketチャットの処理に失敗しました");

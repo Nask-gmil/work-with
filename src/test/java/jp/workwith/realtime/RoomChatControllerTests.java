@@ -18,13 +18,15 @@ import org.springframework.messaging.simp.SimpMessageType;
 
 import jp.workwith.seatassignment.SeatAssignmentNotFoundException;
 import jp.workwith.user.UserSession;
+import jp.workwith.security.SecurityEventLogger;
 
 class RoomChatControllerTests {
     private final RoomChatService service = mock(RoomChatService.class);
     private final RoomRealtimeNotifier notifier = mock(RoomRealtimeNotifier.class);
     private final ChatRateLimitService rateLimitService = mock(ChatRateLimitService.class);
+    private final SecurityEventLogger securityEventLogger = mock(SecurityEventLogger.class);
     private final RoomChatController controller = new RoomChatController(
-            service, notifier, rateLimitService);
+            service, notifier, rateLimitService, securityEventLogger);
 
     RoomChatControllerTests() {
         when(rateLimitService.recordChatAttempt(any(Long.class)))
@@ -93,6 +95,7 @@ class RoomChatControllerTests {
         verify(notifier).notifyChatError(12L,
                 new ChatErrorMessage("chat-rate-limit",
                         "チャットの送信回数が多すぎます。少し時間を空けてから再度お試しください。", 42));
+        verify(securityEventLogger).rateLimit("CHAT_SEND", 12L, null, 5L);
     }
 
     @Test
@@ -107,13 +110,15 @@ class RoomChatControllerTests {
         verify(notifier).notifyChatError(12L,
                 new ChatErrorMessage("dm-rate-limit",
                         "DMの送信回数が多すぎます。少し時間を空けてから再度お試しください。", 30));
+        verify(securityEventLogger).rateLimit("DM_SEND", 12L, null, 5L);
     }
 
     @Test
     void invalidChatAttemptStillConsumesTheSharedGlobalChatLimit() {
         ChatRateLimitService realLimiter = new ChatRateLimitService(
                 1, Duration.ofMinutes(1), 15, Duration.ofMinutes(1), Clock.systemUTC());
-        RoomChatController limitedController = new RoomChatController(service, notifier, realLimiter);
+        RoomChatController limitedController = new RoomChatController(
+                service, notifier, realLimiter, securityEventLogger);
         String overLimit = "a".repeat(151);
         when(service.createMessage(5L, 12L, null, overLimit))
                 .thenThrow(new IllegalArgumentException(

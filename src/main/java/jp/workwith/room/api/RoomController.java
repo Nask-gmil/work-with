@@ -29,6 +29,7 @@ import jp.workwith.seatassignment.RoomFullException;
 import jp.workwith.user.UserNotFoundException;
 import jp.workwith.user.UserSession;
 import jp.workwith.user.api.ApiErrorResponse;
+import jp.workwith.security.SecurityEventLogger;
 
 /** ROOMSに関するHTTPリクエストを受け付けます。 */
 @RestController
@@ -38,14 +39,17 @@ public class RoomController {
     private final RoomService roomService;
     private final RoomRealtimeNotifier realtimeNotifier;
     private final RoomActionRateLimitService roomActionRateLimitService;
+    private final SecurityEventLogger securityEventLogger;
 
     public RoomController(
             RoomService roomService,
             RoomRealtimeNotifier realtimeNotifier,
-            RoomActionRateLimitService roomActionRateLimitService) {
+            RoomActionRateLimitService roomActionRateLimitService,
+            SecurityEventLogger securityEventLogger) {
         this.roomService = roomService;
         this.realtimeNotifier = realtimeNotifier;
         this.roomActionRateLimitService = roomActionRateLimitService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     /** ログイン中の本人をcreatedByとして、private部屋を作成します。 */
@@ -57,6 +61,7 @@ public class RoomController {
         RateLimitResult rateLimit = roomActionRateLimitService
                 .recordPrivateRoomCreateAttempt(userId);
         if (!rateLimit.allowed()) {
+            securityEventLogger.rateLimit("PRIVATE_ROOM_CREATE", userId, null, null);
             return rateLimitExceeded(
                     rateLimit,
                     "短時間に作成できる部屋数の上限に達しました。一定時間後に再度お試しください。");
@@ -141,6 +146,8 @@ public class RoomController {
                     roomService.findAccessiblePrivateRoomByCode(
                             roomCode, getLoginUserId(request))));
         } catch (PrivateRoomAccessDeniedException exception) {
+            securityEventLogger.privateRoomForbidden(
+                    getLoginUserId(request), null, "ROOM_LOOKUP_BY_CODE");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
@@ -158,6 +165,8 @@ public class RoomController {
             return ResponseEntity.ok(RoomResponse.from(
                     roomService.findAccessibleRoom(roomId, getLoginUserId(request))));
         } catch (PrivateRoomAccessDeniedException exception) {
+            securityEventLogger.privateRoomForbidden(
+                    getLoginUserId(request), roomId, "ROOM_DETAILS");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
@@ -183,6 +192,8 @@ public class RoomController {
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomThemeForbiddenException exception) {
+            securityEventLogger.privateRoomForbidden(
+                    getLoginUserId(request), roomId, "ROOM_THEME_CHANGE");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
@@ -201,6 +212,7 @@ public class RoomController {
         long userId = getLoginUserId(request);
         RateLimitResult rateLimit = roomActionRateLimitService.recordRoomJoinAttempt(userId);
         if (!rateLimit.allowed()) {
+            securityEventLogger.rateLimit("PUBLIC_ROOM_JOIN", userId, null, roomId);
             return rateLimitExceeded(
                     rateLimit,
                     "短時間の入室回数が多いため、一時的に入室を制限しています。一定時間後に再度お試しください。");
@@ -228,6 +240,7 @@ public class RoomController {
         long userId = getLoginUserId(request);
         RateLimitResult rateLimit = roomActionRateLimitService.recordRoomJoinAttempt(userId);
         if (!rateLimit.allowed()) {
+            securityEventLogger.rateLimit("PRIVATE_ROOM_JOIN", userId, null, null);
             return rateLimitExceeded(
                     rateLimit,
                     "短時間の入室回数が多いため、一時的に入室を制限しています。一定時間後に再度お試しください。");
@@ -238,6 +251,7 @@ public class RoomController {
             realtimeNotifier.notifyParticipantsChanged(room.getRoomId());
             return ResponseEntity.ok(RoomResponse.from(room));
         } catch (RoomNotFoundException exception) {
+            securityEventLogger.recordInvalidRoomCode(userId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomFullException | AlreadyAssignedToAnotherRoomException exception) {

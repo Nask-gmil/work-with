@@ -26,6 +26,7 @@ import jp.workwith.seatassignment.SeatAssignmentRoomMismatchException;
 import jp.workwith.user.UserSession;
 import jp.workwith.user.UserChangeRateLimitService;
 import jp.workwith.user.api.ApiErrorResponse;
+import jp.workwith.security.SecurityEventLogger;
 
 /** 部屋ごとの現在の座席割り当て一覧APIです。 */
 @RestController
@@ -36,16 +37,19 @@ public class SeatAssignmentController {
     private final RoomService roomService;
     private final RoomRealtimeNotifier realtimeNotifier;
     private final UserChangeRateLimitService changeRateLimitService;
+    private final SecurityEventLogger securityEventLogger;
 
     public SeatAssignmentController(
             SeatAssignmentService seatAssignmentService,
             RoomService roomService,
             RoomRealtimeNotifier realtimeNotifier,
-            UserChangeRateLimitService changeRateLimitService) {
+            UserChangeRateLimitService changeRateLimitService,
+            SecurityEventLogger securityEventLogger) {
         this.seatAssignmentService = seatAssignmentService;
         this.roomService = roomService;
         this.realtimeNotifier = realtimeNotifier;
         this.changeRateLimitService = changeRateLimitService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     @GetMapping
@@ -61,6 +65,9 @@ public class SeatAssignmentController {
                             .toList();
             return ResponseEntity.ok(response);
         } catch (PrivateRoomAccessDeniedException exception) {
+            securityEventLogger.privateRoomForbidden(
+                    ((Number) request.getSession(false).getAttribute(UserSession.LOGIN_USER_ID)).longValue(),
+                    roomId, "SEAT_ASSIGNMENTS");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
@@ -108,6 +115,7 @@ public class SeatAssignmentController {
             UserChangeRateLimitService.RateLimitResult rateLimit =
                     changeRateLimitService.recordStatusAttempt(userId);
             if (!rateLimit.allowed()) {
+                securityEventLogger.rateLimit("STATUS_CHANGE", userId, null, roomId);
                 return changeRateLimited(rateLimit.retryAfterSeconds(), "状態");
             }
             RoomParticipant participant = seatAssignmentService.updateStatus(
@@ -115,6 +123,9 @@ public class SeatAssignmentController {
             realtimeNotifier.notifyStatusChanged(roomId);
             return ResponseEntity.ok(SeatAssignmentResponse.from(participant));
         } catch (IllegalArgumentException exception) {
+            long userId = ((Number) request.getSession(false)
+                    .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            securityEventLogger.invalidInput(userId, "STATUS_CHANGE");
             return ResponseEntity.badRequest()
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {
@@ -140,6 +151,7 @@ public class SeatAssignmentController {
             UserChangeRateLimitService.RateLimitResult rateLimit =
                     changeRateLimitService.recordWorkContentAttempt(userId);
             if (!rateLimit.allowed()) {
+                securityEventLogger.rateLimit("WORK_CONTENT_CHANGE", userId, null, roomId);
                 return changeRateLimited(rateLimit.retryAfterSeconds(), "作業内容");
             }
             RoomParticipant participant = seatAssignmentService.updateWorkContent(
@@ -147,6 +159,12 @@ public class SeatAssignmentController {
             realtimeNotifier.notifyWorkContentChanged(roomId, userId);
             return ResponseEntity.ok(SeatAssignmentResponse.from(participant));
         } catch (IllegalArgumentException exception) {
+            String content = requestBody.workContent();
+            if (content != null && content.length() > 50) {
+                long userId = ((Number) request.getSession(false)
+                        .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+                securityEventLogger.invalidInput(userId, "WORK_CONTENT_CHANGE");
+            }
             return ResponseEntity.badRequest()
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (RoomNotFoundException exception) {

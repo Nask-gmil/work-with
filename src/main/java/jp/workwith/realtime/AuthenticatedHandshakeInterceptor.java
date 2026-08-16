@@ -12,9 +12,16 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
 import jp.workwith.user.UserSession;
+import jp.workwith.security.SecurityEventLogger;
 
 @Component
 public class AuthenticatedHandshakeInterceptor implements HandshakeInterceptor {
+
+    private final SecurityEventLogger securityEventLogger;
+
+    public AuthenticatedHandshakeInterceptor(SecurityEventLogger securityEventLogger) {
+        this.securityEventLogger = securityEventLogger;
+    }
 
     @Override
     public boolean beforeHandshake(
@@ -23,6 +30,7 @@ public class AuthenticatedHandshakeInterceptor implements HandshakeInterceptor {
             WebSocketHandler webSocketHandler,
             Map<String, Object> attributes) {
         if (!(request instanceof ServletServerHttpRequest servletRequest)) {
+            securityEventLogger.websocketForbidden(null, null, "HANDSHAKE", null);
             return false;
         }
         HttpSession session = servletRequest.getServletRequest().getSession(false);
@@ -30,6 +38,7 @@ public class AuthenticatedHandshakeInterceptor implements HandshakeInterceptor {
                 ? null
                 : session.getAttribute(UserSession.LOGIN_USER_ID);
         if (!(loginUserId instanceof Number)) {
+            securityEventLogger.websocketForbidden(null, null, "HANDSHAKE", null);
             return false;
         }
         attributes.put(UserSession.LOGIN_USER_ID, loginUserId);

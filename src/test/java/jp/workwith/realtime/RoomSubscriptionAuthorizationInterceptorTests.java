@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 import java.security.Principal;
 
@@ -18,12 +20,14 @@ import org.springframework.messaging.support.MessageBuilder;
 import jp.workwith.room.PrivateRoomAccessDeniedException;
 import jp.workwith.room.Room;
 import jp.workwith.room.RoomService;
+import jp.workwith.security.SecurityEventLogger;
 
 class RoomSubscriptionAuthorizationInterceptorTests {
 
     private final RoomService roomService = mock(RoomService.class);
+    private final SecurityEventLogger securityEventLogger = mock(SecurityEventLogger.class);
     private final RoomSubscriptionAuthorizationInterceptor interceptor =
-            new RoomSubscriptionAuthorizationInterceptor(roomService);
+            new RoomSubscriptionAuthorizationInterceptor(roomService, securityEventLogger);
     private final MessageChannel channel = mock(MessageChannel.class);
 
     @Test
@@ -46,6 +50,8 @@ class RoomSubscriptionAuthorizationInterceptorTests {
         assertThatThrownBy(() -> interceptor.preSend(
                 subscription("/topic/room/5/presence", 99L), channel))
                 .isInstanceOf(MessageDeliveryException.class);
+        verify(securityEventLogger, times(2))
+                .websocketForbidden(99L, 5L, "ROOM_SUBSCRIBE", null);
     }
 
     @Test

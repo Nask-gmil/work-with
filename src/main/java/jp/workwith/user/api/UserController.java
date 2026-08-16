@@ -28,6 +28,7 @@ import jp.workwith.registration.RegistrationRateLimitService;
 import jp.workwith.registration.RegistrationRateLimitService.RateLimitResult;
 import jp.workwith.registration.TurnstileService;
 import jp.workwith.registration.TurnstileUnavailableException;
+import jp.workwith.security.SecurityEventLogger;
 
 /** 新規ユーザー登録のHTTPリクエストを受け付けます。 */
 @RestController
@@ -42,6 +43,7 @@ public class UserController {
     private final UserChangeRateLimitService changeRateLimitService;
     private final ClientIpResolver clientIpResolver;
     private final TurnstileService turnstileService;
+    private final SecurityEventLogger securityEventLogger;
 
     public UserController(
             UserService userService,
@@ -51,7 +53,8 @@ public class UserController {
             LoginRateLimitService loginRateLimitService,
             UserChangeRateLimitService changeRateLimitService,
             ClientIpResolver clientIpResolver,
-            TurnstileService turnstileService) {
+            TurnstileService turnstileService,
+            SecurityEventLogger securityEventLogger) {
         this.userService = userService;
         this.seatAssignmentService = seatAssignmentService;
         this.realtimeNotifier = realtimeNotifier;
@@ -60,6 +63,7 @@ public class UserController {
         this.changeRateLimitService = changeRateLimitService;
         this.clientIpResolver = clientIpResolver;
         this.turnstileService = turnstileService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     @PostMapping("/register")
@@ -69,6 +73,7 @@ public class UserController {
         String clientIp = clientIpResolver.resolve(httpRequest);
         RateLimitResult rateLimit = registrationRateLimitService.recordAttempt(clientIp);
         if (!rateLimit.allowed()) {
+            securityEventLogger.rateLimit("REGISTRATION", null, clientIp, null);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .header("Retry-After", Long.toString(rateLimit.retryAfterSeconds()))
                     .body(new ApiErrorResponse(
@@ -115,6 +120,8 @@ public class UserController {
         LoginRateLimitService.RateLimitResult currentLimit =
                 loginRateLimitService.check(normalizedUsername, clientIp);
         if (!currentLimit.allowed()) {
+            securityEventLogger.rateLimit("LOGIN", null,
+                    normalizedUsername + "|" + clientIp, null);
             return loginRateLimited(currentLimit.retryAfterSeconds());
         }
 
@@ -139,7 +146,13 @@ public class UserController {
         } catch (InvalidCredentialsException exception) {
             LoginRateLimitService.RateLimitResult updatedLimit =
                     loginRateLimitService.recordFailure(normalizedUsername, clientIp);
+            if (updatedLimit.failureCount() == 5) {
+                securityEventLogger.loginFailureBurst(
+                        normalizedUsername, clientIp, updatedLimit.failureCount());
+            }
             if (!updatedLimit.allowed()) {
+                securityEventLogger.rateLimit("LOGIN", null,
+                        normalizedUsername + "|" + clientIp, null);
                 return loginRateLimited(updatedLimit.retryAfterSeconds());
             }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -197,6 +210,7 @@ public class UserController {
                 UserChangeRateLimitService.RateLimitResult rateLimit =
                         changeRateLimitService.recordAvatarAttempt(userId);
                 if (!rateLimit.allowed()) {
+                    securityEventLogger.rateLimit("AVATAR_CHANGE", userId, null, null);
                     return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                             .header("Retry-After", Long.toString(rateLimit.retryAfterSeconds()))
                             .body(new ApiErrorResponse(
@@ -213,6 +227,7 @@ public class UserController {
                     updatedUser.getUsername(),
                     updatedUser.getAvatarType()));
         } catch (IllegalArgumentException exception) {
+            securityEventLogger.invalidInput(userId, "AVATAR_CHANGE");
             return ResponseEntity.badRequest()
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (UserNotFoundException exception) {

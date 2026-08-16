@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import jp.workwith.room.PrivateRoomAccessDeniedException;
 import jp.workwith.room.RoomNotFoundException;
 import jp.workwith.room.RoomService;
+import jp.workwith.security.SecurityEventLogger;
 
 @Component
 public class RoomSubscriptionAuthorizationInterceptor implements ChannelInterceptor {
@@ -23,9 +24,12 @@ public class RoomSubscriptionAuthorizationInterceptor implements ChannelIntercep
             "^/topic/room/(\\d+)(?:/presence)?$");
 
     private final RoomService roomService;
+    private final SecurityEventLogger securityEventLogger;
 
-    public RoomSubscriptionAuthorizationInterceptor(RoomService roomService) {
+    public RoomSubscriptionAuthorizationInterceptor(
+            RoomService roomService, SecurityEventLogger securityEventLogger) {
         this.roomService = roomService;
+        this.securityEventLogger = securityEventLogger;
     }
 
     @Override
@@ -38,14 +42,20 @@ public class RoomSubscriptionAuthorizationInterceptor implements ChannelIntercep
         if (matcher == null || !matcher.matches()) return message;
 
         Principal principal = headers.getUser();
-        if (principal == null) throw new MessageDeliveryException("認証が必要です");
+        if (principal == null) {
+            securityEventLogger.websocketForbidden(null, null, "ROOM_SUBSCRIBE", null);
+            throw new MessageDeliveryException("認証が必要です");
+        }
+        Long userId = null;
+        Long roomId = null;
         try {
-            long userId = Long.parseLong(principal.getName());
-            long roomId = Long.parseLong(matcher.group(1));
+            userId = Long.parseLong(principal.getName());
+            roomId = Long.parseLong(matcher.group(1));
             roomService.findAccessibleRoom(roomId, userId);
             return message;
         } catch (NumberFormatException | RoomNotFoundException
                 | PrivateRoomAccessDeniedException exception) {
+            securityEventLogger.websocketForbidden(userId, roomId, "ROOM_SUBSCRIBE", null);
             throw new MessageDeliveryException(
                     message, "この部屋を購読する権限がありません", exception);
         }

@@ -43,7 +43,7 @@ public class LoginRateLimitService {
         FailureState state = failures.get(key);
         cleanupExpiredOccasionally(now);
         if (state == null || state.blockedUntil() == null || !now.isBefore(state.blockedUntil())) {
-            return new RateLimitResult(true, 0);
+            return new RateLimitResult(true, 0, state == null ? 0 : state.count());
         }
         return blockedResult(now, state.blockedUntil());
     }
@@ -66,7 +66,7 @@ public class LoginRateLimitService {
         });
         cleanupExpiredOccasionally(now);
         return current.blockedUntil() == null
-                ? new RateLimitResult(true, 0)
+                ? new RateLimitResult(true, 0, current.count())
                 : blockedResult(now, current.blockedUntil());
     }
 
@@ -82,7 +82,7 @@ public class LoginRateLimitService {
 
     private RateLimitResult blockedResult(Instant now, Instant blockedUntil) {
         long remaining = Duration.between(now, blockedUntil).toSeconds();
-        return new RateLimitResult(false, Math.max(1, remaining));
+        return new RateLimitResult(false, Math.max(1, remaining), maxFailures);
     }
 
     private void cleanupExpiredOccasionally(Instant now) {
@@ -97,7 +97,7 @@ public class LoginRateLimitService {
         });
     }
 
-    public record RateLimitResult(boolean allowed, long retryAfterSeconds) {
+    public record RateLimitResult(boolean allowed, long retryAfterSeconds, int failureCount) {
     }
 
     private record LoginKey(String normalizedUsername, String clientIp) {
