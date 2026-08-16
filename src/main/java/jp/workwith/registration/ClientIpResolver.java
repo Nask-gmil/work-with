@@ -18,8 +18,9 @@ public class ClientIpResolver {
 
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (forwardedFor != null) {
-            String firstHop = forwardedFor.split(",", 2)[0].trim();
-            String forwardedIp = validIp(firstHop);
+            String[] hops = forwardedFor.split(",");
+            String lastHop = hops[hops.length - 1].trim();
+            String forwardedIp = validIp(lastHop);
             if (forwardedIp != null) {
                 return forwardedIp;
             }
