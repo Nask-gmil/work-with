@@ -17,6 +17,7 @@ import jp.workwith.user.DuplicateUsernameException;
 import jp.workwith.user.InvalidCredentialsException;
 import jp.workwith.user.LoginRateLimitService;
 import jp.workwith.user.User;
+import jp.workwith.user.UserChangeRateLimitService;
 import jp.workwith.user.UserService;
 import jp.workwith.user.UserSession;
 import jp.workwith.user.UserNotFoundException;
@@ -38,6 +39,7 @@ public class UserController {
     private final RoomRealtimeNotifier realtimeNotifier;
     private final RegistrationRateLimitService registrationRateLimitService;
     private final LoginRateLimitService loginRateLimitService;
+    private final UserChangeRateLimitService changeRateLimitService;
     private final ClientIpResolver clientIpResolver;
     private final TurnstileService turnstileService;
 
@@ -47,6 +49,7 @@ public class UserController {
             RoomRealtimeNotifier realtimeNotifier,
             RegistrationRateLimitService registrationRateLimitService,
             LoginRateLimitService loginRateLimitService,
+            UserChangeRateLimitService changeRateLimitService,
             ClientIpResolver clientIpResolver,
             TurnstileService turnstileService) {
         this.userService = userService;
@@ -54,6 +57,7 @@ public class UserController {
         this.realtimeNotifier = realtimeNotifier;
         this.registrationRateLimitService = registrationRateLimitService;
         this.loginRateLimitService = loginRateLimitService;
+        this.changeRateLimitService = changeRateLimitService;
         this.clientIpResolver = clientIpResolver;
         this.turnstileService = turnstileService;
     }
@@ -187,6 +191,19 @@ public class UserController {
         long userId = getLoginUserId(request);
 
         try {
+            User currentUser = userService.findById(userId)
+                    .orElseThrow(UserNotFoundException::new);
+            if (currentUser.getAvatarType() != null) {
+                UserChangeRateLimitService.RateLimitResult rateLimit =
+                        changeRateLimitService.recordAvatarAttempt(userId);
+                if (!rateLimit.allowed()) {
+                    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                            .header("Retry-After", Long.toString(rateLimit.retryAfterSeconds()))
+                            .body(new ApiErrorResponse(
+                                    "短時間のアバター変更回数が多いため、一時的に変更を制限しています。"
+                                            + "少し時間を空けてから再度お試しください。"));
+                }
+            }
             User updatedUser = userService.updateAvatar(
                     userId, requestBody.getAvatarType());
             seatAssignmentService.findAssignedRoomId(userId)

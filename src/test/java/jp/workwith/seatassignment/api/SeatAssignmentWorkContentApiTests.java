@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -30,6 +31,7 @@ import jp.workwith.seatassignment.SeatAssignmentRepository;
 import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserSession;
+import jp.workwith.user.UserChangeRateLimitService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,7 +42,13 @@ class SeatAssignmentWorkContentApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository assignmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private UserChangeRateLimitService changeRateLimitService;
     @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
+
+    @BeforeEach
+    void clearRateLimits() {
+        changeRateLimitService.clear();
+    }
 
     @Test
     void updatesOnlySessionUsersWorkContentAndCanClearIt() throws Exception {
@@ -110,6 +118,35 @@ class SeatAssignmentWorkContentApiTests {
                     org.mockito.ArgumentMatchers.anyLong());
         } finally {
             roomRepository.deleteById(otherRoom.getRoomId());
+            cleanup(data);
+        }
+    }
+
+    @Test
+    void invalidAttemptsReachLimitWithoutUpdatingDatabaseOrNotifying() throws Exception {
+        TestData data = createData();
+        try {
+            for (int attempt = 1; attempt <= 20; attempt++) {
+                mockMvc.perform(patch("/api/rooms/{roomId}/seat-assignments/me/work-content",
+                        data.room().getRoomId()).session(session(data.user()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"workContent\":\"" + "a".repeat(26) + "\"}"))
+                        .andExpect(status().isBadRequest());
+            }
+            mockMvc.perform(patch("/api/rooms/{roomId}/seat-assignments/me/work-content",
+                    data.room().getRoomId()).session(session(data.user()))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"workContent\":\"new\"}"))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.message").value(
+                            "短時間の作業内容変更回数が多いため、一時的に変更を制限しています。"
+                                    + "少し時間を空けてから再度お試しください。"));
+            assertThat(assignmentRepository.findByUserId(data.user().getUserId()))
+                    .get().extracting(SeatAssignment::getWorkContent).isEqualTo("old");
+            verify(realtimeNotifier, never()).notifyWorkContentChanged(
+                    org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyLong());
+        } finally {
             cleanup(data);
         }
     }

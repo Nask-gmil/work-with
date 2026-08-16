@@ -24,6 +24,7 @@ import jp.workwith.seatassignment.RoomParticipant;
 import jp.workwith.seatassignment.SeatAssignmentNotFoundException;
 import jp.workwith.seatassignment.SeatAssignmentRoomMismatchException;
 import jp.workwith.user.UserSession;
+import jp.workwith.user.UserChangeRateLimitService;
 import jp.workwith.user.api.ApiErrorResponse;
 
 /** 部屋ごとの現在の座席割り当て一覧APIです。 */
@@ -34,14 +35,17 @@ public class SeatAssignmentController {
     private final SeatAssignmentService seatAssignmentService;
     private final RoomService roomService;
     private final RoomRealtimeNotifier realtimeNotifier;
+    private final UserChangeRateLimitService changeRateLimitService;
 
     public SeatAssignmentController(
             SeatAssignmentService seatAssignmentService,
             RoomService roomService,
-            RoomRealtimeNotifier realtimeNotifier) {
+            RoomRealtimeNotifier realtimeNotifier,
+            UserChangeRateLimitService changeRateLimitService) {
         this.seatAssignmentService = seatAssignmentService;
         this.roomService = roomService;
         this.realtimeNotifier = realtimeNotifier;
+        this.changeRateLimitService = changeRateLimitService;
     }
 
     @GetMapping
@@ -101,6 +105,11 @@ public class SeatAssignmentController {
         try {
             long userId = ((Number) request.getSession(false)
                     .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            UserChangeRateLimitService.RateLimitResult rateLimit =
+                    changeRateLimitService.recordStatusAttempt(userId);
+            if (!rateLimit.allowed()) {
+                return changeRateLimited(rateLimit.retryAfterSeconds(), "状態");
+            }
             RoomParticipant participant = seatAssignmentService.updateStatus(
                     roomId, userId, requestBody.getStatus());
             realtimeNotifier.notifyStatusChanged(roomId);
@@ -128,6 +137,11 @@ public class SeatAssignmentController {
         try {
             long userId = ((Number) request.getSession(false)
                     .getAttribute(UserSession.LOGIN_USER_ID)).longValue();
+            UserChangeRateLimitService.RateLimitResult rateLimit =
+                    changeRateLimitService.recordWorkContentAttempt(userId);
+            if (!rateLimit.allowed()) {
+                return changeRateLimited(rateLimit.retryAfterSeconds(), "作業内容");
+            }
             RoomParticipant participant = seatAssignmentService.updateWorkContent(
                     roomId, userId, requestBody.workContent());
             realtimeNotifier.notifyWorkContentChanged(roomId, userId);
@@ -145,5 +159,14 @@ public class SeatAssignmentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiErrorResponse("作業内容の更新に失敗しました"));
         }
+    }
+
+    private ResponseEntity<ApiErrorResponse> changeRateLimited(
+            long retryAfterSeconds, String targetName) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(retryAfterSeconds))
+                .body(new ApiErrorResponse(
+                        "短時間の" + targetName + "変更回数が多いため、一時的に変更を制限しています。"
+                                + "少し時間を空けてから再度お試しください。"));
     }
 }

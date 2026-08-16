@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -30,6 +31,7 @@ import jp.workwith.user.User;
 import jp.workwith.user.UserRepository;
 import jp.workwith.user.UserService;
 import jp.workwith.user.UserSession;
+import jp.workwith.user.UserChangeRateLimitService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,7 +50,13 @@ class UserAvatarApiTests {
     @Autowired private SeatRepository seatRepository;
     @Autowired private SeatAssignmentRepository assignmentRepository;
     @Autowired private SeatAssignmentService assignmentService;
+    @Autowired private UserChangeRateLimitService changeRateLimitService;
     @MockitoBean private RoomRealtimeNotifier realtimeNotifier;
+
+    @BeforeEach
+    void clearRateLimits() {
+        changeRateLimitService.clear();
+    }
 
     @Test
     void updatesAvatarAndReturnsItFromCurrentUserApi() throws Exception {
@@ -165,6 +173,38 @@ class UserAvatarApiTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"avatarType\":\"male_a\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void invalidRechangeAttemptsReachLimitWithoutUpdatingDatabaseOrNotifying() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        User user = userRepository.create(new User(
+                null, "avatar_limit_" + suffix.substring(0, 7), "password", "male_a"));
+        MockHttpSession session = loggedInSession(user);
+        try {
+            for (int attempt = 1; attempt <= 10; attempt++) {
+                mockMvc.perform(patch("/api/users/me/avatar")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatarType\":\"invalid_avatar\"}"))
+                        .andExpect(status().isBadRequest());
+            }
+            mockMvc.perform(patch("/api/users/me/avatar")
+                    .session(session)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"avatarType\":\"female_b\"}"))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(jsonPath("$.message").value(
+                            "短時間のアバター変更回数が多いため、一時的に変更を制限しています。"
+                                    + "少し時間を空けてから再度お試しください。"));
+            assertThat(userRepository.findById(user.getUserId()))
+                    .get().extracting(User::getAvatarType).isEqualTo("male_a");
+            verify(realtimeNotifier, never()).notifyAvatarChanged(
+                    org.mockito.ArgumentMatchers.anyLong(),
+                    org.mockito.ArgumentMatchers.anyLong());
+        } finally {
+            userRepository.deleteById(user.getUserId());
+        }
     }
 
     private User createTestUser() {
