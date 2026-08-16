@@ -326,6 +326,13 @@ avatarOptions.forEach(function (option) {
   });
 });
 
+// 初回選択は必須のまま維持し、設定済みアバターの再変更だけは外側クリックで閉じます。
+avatarModalOverlay.addEventListener("click", function (event) {
+  if (event.target === avatarModalOverlay && getSelectedAvatar()) {
+    closeAvatarModal();
+  }
+});
+
 confirmAvatarButton.addEventListener("click", async function () {
   if (!selectedAvatar) {
     avatarError.textContent = "アバターを選択してください";
