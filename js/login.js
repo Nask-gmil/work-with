@@ -4,6 +4,8 @@ const loginForm = document.getElementById("login-form");
 const loginUsername = document.getElementById("username");
 const loginPassword = document.getElementById("password");
 const loginButton = loginForm.querySelector("button[type='submit']");
+const defaultLoginButtonText = loginButton.textContent;
+let isLoggingIn = false;
 
 // HTML/CSSを変更せず、既存のエラー用デザインをログイン画面でも利用します。
 const loginError = document.createElement("p");
@@ -25,11 +27,15 @@ function clearLoginError() {
 
 /** 入力情報をログインAPIへ送り、成功した場合だけロビーを表示します。 */
 async function login() {
+  if (isLoggingIn) return;
+  isLoggingIn = true;
   const username = loginUsername.value.trim().normalize("NFC");
   const password = loginPassword.value;
 
   clearLoginError();
   loginButton.disabled = true;
+  loginButton.textContent = "ログイン中...";
+  loginButton.setAttribute("aria-busy", "true");
 
   try {
     const response = await fetch("/api/users/login", {
@@ -54,7 +60,10 @@ async function login() {
   } catch (error) {
     showLoginError("サーバーに接続できません。Spring Bootが起動しているか確認してください");
   } finally {
+    isLoggingIn = false;
     loginButton.disabled = false;
+    loginButton.textContent = defaultLoginButtonText;
+    loginButton.removeAttribute("aria-busy");
   }
 }
 

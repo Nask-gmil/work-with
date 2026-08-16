@@ -83,7 +83,7 @@ public class UserService {
     }
 
     /** 登録・ログイン・重複検索で同じusername表現と文字種を使用します。 */
-    private String normalizeAndValidateUsername(String username) {
+    public String normalizeAndValidateUsername(String username) {
         String trimmedUsername = username == null ? "" : username.trim();
         String normalizedUsername = Normalizer.normalize(trimmedUsername, Normalizer.Form.NFC);
         if (normalizedUsername.isEmpty()) {

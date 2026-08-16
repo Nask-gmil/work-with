@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jp.workwith.user.DuplicateUsernameException;
 import jp.workwith.user.InvalidCredentialsException;
+import jp.workwith.user.LoginRateLimitService;
 import jp.workwith.user.User;
 import jp.workwith.user.UserService;
 import jp.workwith.user.UserSession;
@@ -36,6 +37,7 @@ public class UserController {
     private final SeatAssignmentService seatAssignmentService;
     private final RoomRealtimeNotifier realtimeNotifier;
     private final RegistrationRateLimitService registrationRateLimitService;
+    private final LoginRateLimitService loginRateLimitService;
     private final ClientIpResolver clientIpResolver;
     private final TurnstileService turnstileService;
 
@@ -44,12 +46,14 @@ public class UserController {
             SeatAssignmentService seatAssignmentService,
             RoomRealtimeNotifier realtimeNotifier,
             RegistrationRateLimitService registrationRateLimitService,
+            LoginRateLimitService loginRateLimitService,
             ClientIpResolver clientIpResolver,
             TurnstileService turnstileService) {
         this.userService = userService;
         this.seatAssignmentService = seatAssignmentService;
         this.realtimeNotifier = realtimeNotifier;
         this.registrationRateLimitService = registrationRateLimitService;
+        this.loginRateLimitService = loginRateLimitService;
         this.clientIpResolver = clientIpResolver;
         this.turnstileService = turnstileService;
     }
@@ -97,8 +101,22 @@ public class UserController {
     public ResponseEntity<?> login(
             @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
+        String normalizedUsername;
         try {
-            User user = userService.login(request.getUsername(), request.getPassword());
+            normalizedUsername = userService.normalizeAndValidateUsername(request.getUsername());
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(new ApiErrorResponse(exception.getMessage()));
+        }
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        LoginRateLimitService.RateLimitResult currentLimit =
+                loginRateLimitService.check(normalizedUsername, clientIp);
+        if (!currentLimit.allowed()) {
+            return loginRateLimited(currentLimit.retryAfterSeconds());
+        }
+
+        try {
+            User user = userService.login(normalizedUsername, request.getPassword());
+            loginRateLimitService.reset(normalizedUsername, clientIp);
 
             // セッション固定攻撃を避けるため、既存セッションを破棄して作り直します。
             HttpSession existingSession = httpRequest.getSession(false);
@@ -115,12 +133,25 @@ public class UserController {
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(new ApiErrorResponse(exception.getMessage()));
         } catch (InvalidCredentialsException exception) {
+            LoginRateLimitService.RateLimitResult updatedLimit =
+                    loginRateLimitService.recordFailure(normalizedUsername, clientIp);
+            if (!updatedLimit.allowed()) {
+                return loginRateLimited(updatedLimit.retryAfterSeconds());
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiErrorResponse(exception.getMessage()));
         } catch (DataAccessException exception) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiErrorResponse("ログイン処理に失敗しました"));
         }
+    }
+
+    private ResponseEntity<ApiErrorResponse> loginRateLimited(long retryAfterSeconds) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(retryAfterSeconds))
+                .body(new ApiErrorResponse(
+                        "ログイン試行回数が多いため、一時的にログインを制限しています。"
+                                + "時間を空けてから再度お試しください。"));
     }
 
     /** HttpSessionを確認し、現在ログイン中のユーザー情報を返します。 */
