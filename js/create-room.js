@@ -77,7 +77,7 @@ async function createPrivateRoom() {
     throw new Error(message);
   }
 
-  return saveCurrentPrivateRoom(responseBody);
+  return responseBody;
 }
 
 /** Spring Bootから返された部屋名と参加用roomCodeを表示します。 */
@@ -91,9 +91,26 @@ function showCreatedRoom(room) {
   createdRoomResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-/** 既存SPAのワークスペース画面へ移動します。 */
-function enterPrivateRoom(room) {
-  const currentRoom = saveCurrentPrivateRoom(room);
+/** 作成済みのprivate部屋へ着席してから、ワークスペース画面へ移動します。 */
+async function enterPrivateRoom(room) {
+  const response = await fetch("/api/rooms/private/join", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomCode: room.roomCode })
+  });
+
+  if (response.status === 401) {
+    returnToLoginAfterRoomUnauthorized();
+    return;
+  }
+
+  const responseBody = await response.json();
+  if (!response.ok) {
+    throw new Error(responseBody.message || "部屋に入室できませんでした");
+  }
+
+  const currentRoom = saveCurrentPrivateRoom(responseBody);
   const query = new URLSearchParams({ roomId: currentRoom.roomId }).toString();
   showView("room", true, query);
 }
@@ -128,6 +145,16 @@ copyRoomIdButton.addEventListener("click", async function () {
   }
 });
 
-enterCreatedRoomButton.addEventListener("click", function () {
-  if (latestCreatedRoom) enterPrivateRoom(latestCreatedRoom);
+enterCreatedRoomButton.addEventListener("click", async function () {
+  if (!latestCreatedRoom) return;
+
+  createRoomError.textContent = "";
+  enterCreatedRoomButton.disabled = true;
+  try {
+    await enterPrivateRoom(latestCreatedRoom);
+  } catch (error) {
+    createRoomError.textContent = error.message;
+  } finally {
+    enterCreatedRoomButton.disabled = false;
+  }
 });

@@ -120,6 +120,14 @@ class RoomApiTests {
                     .get()
                     .extracting(Room::getRoomId)
                     .isEqualTo(savedRoom.getRoomId());
+            assertThat(seatAssignmentRepository.findByUserId(user.getUserId())).isEmpty();
+
+            mockMvc.perform(post("/api/rooms/private/join")
+                    .session(session)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"roomCode\":\"" + namedRoomCode + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.roomId").value(namedRoomId));
             assertThat(seatAssignmentRepository.findByUserId(user.getUserId())).isPresent();
 
             MvcResult automaticNameResult = mockMvc.perform(post("/api/rooms")

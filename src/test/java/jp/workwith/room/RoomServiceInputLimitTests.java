@@ -21,7 +21,7 @@ import jp.workwith.user.UserService;
 class RoomServiceInputLimitTests {
 
     @Test
-    void acceptsTenAndRejectsElevenCharactersBeforeCreatingRoomSeatsOrAssignment() {
+    void acceptsTenWithoutAssigningASeatAndRejectsElevenCharactersBeforeCreatingRoomSeats() {
         RoomRepository roomRepository = mock(RoomRepository.class);
         UserService userService = mock(UserService.class);
         SeatService seatService = mock(SeatService.class);
@@ -40,7 +40,7 @@ class RoomServiceInputLimitTests {
         Room created = service.createPrivateRoom(1L, "a".repeat(10), "focus", 10);
         assertThat(created.getRoomName()).hasSize(10);
         verify(seatService).createForRoom(10L, 10);
-        verify(assignmentService).autoAssignSeat(10L, 1L);
+        verify(assignmentService, never()).autoAssignSeat(any(Long.class), any(Long.class));
 
         clearInvocations(roomRepository, seatService, assignmentService);
         assertThatThrownBy(() -> service.createPrivateRoom(

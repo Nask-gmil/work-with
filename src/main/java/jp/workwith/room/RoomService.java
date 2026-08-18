@@ -86,7 +86,6 @@ public class RoomService {
 
             // 座席生成の例外は捕捉せず、部屋のINSERTと一緒にロールバックさせます。
             seatService.createForRoom(createdRoom.getRoomId(), createdRoom.getMaxSeats());
-            seatAssignmentService.autoAssignSeat(createdRoom.getRoomId(), userId);
             return createdRoom;
         }
 
