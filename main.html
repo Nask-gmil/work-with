@@ -400,13 +400,15 @@
   <main id="room-view" class="app-view room-page" data-view="room" hidden>
     <header class="room-header">
       <div class="room-heading">
-        <div id="public-room-view-navigation" hidden>
-          <button type="button" id="previous-public-room" aria-label="前の同カテゴリ部屋">←</button>
-          <span id="public-room-view-position"></span>
-          <button type="button" id="next-public-room" aria-label="次の同カテゴリ部屋">→</button>
+        <div class="room-heading-top">
+          <h1 id="workspace-room-name">部屋</h1>
+          <div id="public-room-view-navigation" hidden>
+            <button type="button" id="previous-public-room" aria-label="前の同カテゴリ部屋">←</button>
+            <span id="public-room-view-position"></span>
+            <button type="button" id="next-public-room" aria-label="次の同カテゴリ部屋">→</button>
+          </div>
           <button type="button" id="return-to-joined-room" hidden>自分の部屋へ戻る</button>
         </div>
-        <h1 id="workspace-room-name">部屋</h1>
         <p id="workspace-participant-count">入室者 0人</p>
       </div>
       <div class="room-header-actions">
