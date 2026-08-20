@@ -102,7 +102,7 @@
 - セッションCookieはHttpOnly・Secure属性付き
 - 新規登録・ログイン・部屋作成/入室・チャット送信・各種変更操作にRate Limitを設定し、連打・総当たり攻撃を防止
 - 新規登録時はCloudflare Turnstileによるbot対策を実施
-- Rate Limit発動や不審なアクセスは、個人情報を含めない形（指紋化）でサーバーログに記録
+- Rate Limit発動や不審なアクセスは、個人情報を含めない形でサーバーログに記録
 - X-Forwarded-Forヘッダーは、Cloudflare経由時は`CF-Connecting-IP`を優先し、フォールバック時も偽装されやすい先頭値ではなく末尾の値を採用
 
 ## API仕様
@@ -137,8 +137,7 @@ cd work-with
 Cloudflare Turnstile（bot対策）を有効にする場合は、以下の環境変数を設定してください。未設定の場合、新規登録APIは503を返して安全側に倒れます。
 
 ```bash
-export TURNSTILE_SITE_KEY=xxxxx
-export TURNSTILE_SECRET_KEY=xxxxx
+export TURNSTILE_SITE_KEY=0x4AAAAAAEQ5D7SGv_810-Dn
 ```
 
 Rate Limitの閾値やデータの保存期間なども環境変数で調整できます。詳細は `src/main/resources/application.properties` を参照してください。
