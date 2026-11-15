@@ -69,7 +69,7 @@
 | Category | Technology Stack |
 |---|---|
 | Frontend | HTML / CSS / JavaScript（Vanilla, SPA構成） |
-| Backend | Java 21, Spring Boot 3.5, Spring WebSocket (STOMP), Spring JDBC |
+| Backend | Java 25, Spring Boot 3.5, Spring WebSocket (STOMP), Spring JDBC |
 | Database | SQLite |
 | Bot対策 | Cloudflare Turnstile |
 | Infrastructure | Render（Docker） |
@@ -116,7 +116,7 @@ REST API・WebSocketチャンネルの一覧・詳細仕様は、以下のスプ
 
 ### 必要環境
 
-- JDK 21
+- JDK 25
 - Git
 
 ### セットアップ手順

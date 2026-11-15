@@ -1,5 +1,5 @@
 # --- ビルド用ステージ ---
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 
 # 依存関係の定義だけ先にコピーしてキャッシュを効かせる
@@ -17,7 +17,7 @@ COPY work-space-pic ./work-space-pic
 RUN ./mvnw clean package -DskipTests
 
 # --- 実行用ステージ ---
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 
 COPY --from=build /app/target/work-with-0.0.1-SNAPSHOT.jar app.jar
