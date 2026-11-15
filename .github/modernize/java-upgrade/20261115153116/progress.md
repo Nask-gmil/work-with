@@ -21,7 +21,7 @@
     - Result: ✅ Java 25.0.5.0.2 LTS and Maven 3.9.16 verified.
     - Notes: Java 21 is unavailable; baseline skipped. Latest Java 25 patch installed for final validation.
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: N/A - no project changes in this step
 
 - **Step 2: Setup Baseline**
   - **Status**: ✅ Completed
@@ -58,7 +58,7 @@
     - Result: ✅ Compilation SUCCESS
     - Notes: Workspace clean failed because VS Code Java tooling locks target/classes; isolated clean build passed.
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: 0b823f800d8662f29eb1188c7986f014af900c80 - Upgrade Java runtime to 25 - Compile: SUCCESS, Tests: 138/138 passed
 
 - **Step 4: CVE Validation & Fix**
   - **Status**: ✅ Completed
@@ -75,7 +75,7 @@
     - Result: ⏭ Skipped; dedicated CVE scanner not available.
     - Notes: No CVE scan result is claimed.
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: N/A - scanner unavailable; no dependency changes
 
 - **Step 5: Final Validation**
   - **Status**: ✅ Completed
@@ -93,7 +93,7 @@
     - Result: ✅ Compilation SUCCESS | Tests: 138/138 passed
     - Notes: 0 failures, 0 errors, 0 skipped. Docker daemon unavailable; image build not run.
   - **Deferred Work**: None
-  - **Commit**: Pending
+  - **Commit**: 0b823f800d8662f29eb1188c7986f014af900c80 - Upgrade Java runtime to 25 - Compile: SUCCESS, Tests: 138/138 passed
 
 ---
 
